@@ -1,0 +1,55 @@
+name: Docker Compose Integration
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  integration:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Copy env file
+        run: cp .env.example .env
+
+      - name: Generate RS256 keys
+        run: |
+          mkdir -p keys
+          openssl genrsa -out keys/private.pem 2048
+          openssl rsa -in keys/private.pem -pubout -out keys/public.pem
+
+      - name: Build all images
+        run: docker compose build --parallel
+
+      - name: Start services
+        run: docker compose up -d postgres redis
+        
+      - name: Wait for postgres
+        run: |
+          for i in $(seq 1 30); do
+            docker compose exec -T postgres pg_isready -U eduintel && break
+            echo "Waiting for postgres... attempt $i"
+            sleep 2
+          done
+
+      - name: Start application services
+        run: docker compose up -d
+
+      - name: Health check — API Gateway
+        run: |
+          sleep 15
+          curl --fail http://localhost:80/health || exit 1
+
+      - name: Health check — AI Service
+        run: curl --fail http://localhost:8000/health || exit 1
+
+      - name: Collect logs on failure
+        if: failure()
+        run: docker compose logs --tail=50
+
+      - name: Teardown
+        if: always()
+        run: docker compose down -v

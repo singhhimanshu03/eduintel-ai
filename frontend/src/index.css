@@ -1,0 +1,62 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  /* Light mode defaults */
+  body {
+    @apply bg-gray-50 text-gray-900 font-sans transition-colors duration-200;
+  }
+
+  /* Dark mode body */
+  .dark body {
+    background-color: #121212;
+    color: #f1f1f1;
+  }
+
+  /* Smooth transition on theme switch for all elements */
+  *, *::before, *::after {
+    transition-property: background-color, border-color, color, fill, stroke;
+    transition-duration: 200ms;
+    transition-timing-function: ease;
+  }
+
+  /* Scrollbar dark mode */
+  .dark ::-webkit-scrollbar { background: #1e1e1e; width: 8px; }
+  .dark ::-webkit-scrollbar-thumb { background: #3f3f3f; border-radius: 4px; }
+  .dark ::-webkit-scrollbar-thumb:hover { background: #555; }
+}
+
+@layer utilities {
+  /* ── Surface utilities ────────────────────────────────────────────────── */
+  /* Use these instead of hardcoded bg-white / border-gray-200 */
+  .surface       { @apply bg-white dark:bg-[#1E1E1E]; }
+  .surface-alt   { @apply bg-gray-50 dark:bg-[#252525]; }
+  .surface-hover { @apply hover:bg-gray-50 dark:hover:bg-[#2a2a2a]; }
+
+  /* ── Border utilities ─────────────────────────────────────────────────── */
+  .border-base   { @apply border-gray-200 dark:border-white/10; }
+
+  /* ── Text utilities ───────────────────────────────────────────────────── */
+  .text-primary-content  { @apply text-gray-900 dark:text-white; }
+  .text-secondary-content{ @apply text-gray-500 dark:text-[#b0b0b0]; }
+  .text-muted            { @apply text-gray-400 dark:text-[#6b6b6b]; }
+
+  /* ── Input utilities ──────────────────────────────────────────────────── */
+  .input-base {
+    @apply w-full border border-gray-300 dark:border-white/10
+           bg-white dark:bg-[#2a2a2a]
+           text-gray-900 dark:text-white
+           placeholder-gray-400 dark:placeholder-gray-500
+           rounded-xl px-4 py-2.5 text-sm
+           focus:outline-none focus:ring-2 focus:ring-indigo-500
+           transition-colors duration-150;
+  }
+
+  /* ── Card utilities ───────────────────────────────────────────────────── */
+  .card {
+    @apply bg-white dark:bg-[#1E1E1E]
+           border border-gray-200 dark:border-white/10
+           rounded-xl;
+  }
+}

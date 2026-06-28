@@ -1,0 +1,258 @@
+services:
+  # ── Databases ────────────────────────────────────────────────────────────────
+  postgres:
+    image: postgres:15-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-eduintel}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-eduintel_pass}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./db/init:/docker-entrypoint-initdb.d
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-eduintel}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
+  # ── API Gateway ───────────────────────────────────────────────────────────────
+  api-gateway:
+    build: ./services/api-gateway
+    restart: unless-stopped
+    ports:
+      - "80:80"
+    volumes:
+      - ./keys/public.pem:/app/keys/public.pem:ro
+    environment:
+      - GATEWAY_PORT=80
+      - JWT_PUBLIC_KEY_PATH=/app/keys/public.pem
+      - INTERNAL_SERVICE_SECRET=${INTERNAL_SERVICE_SECRET}
+      - REDIS_URL=redis://redis:6379
+      - RATE_LIMIT_WINDOW_MS=${RATE_LIMIT_WINDOW_MS:-60000}
+      - RATE_LIMIT_MAX=${RATE_LIMIT_MAX:-200}
+      - AUTH_SERVICE_URL=http://auth-service:3001
+      - STUDENT_SERVICE_URL=http://student-service:3002
+      - FACULTY_SERVICE_URL=http://faculty-service:3003
+      - ATTENDANCE_SERVICE_URL=http://attendance-service:3004
+      - EXAM_SERVICE_URL=http://examination-service:3005
+      - FEE_SERVICE_URL=http://fee-service:3006
+      - NOTIFICATION_SERVICE_URL=http://notification-service:3007
+      - PLACEMENT_SERVICE_URL=http://placement-service:3008
+      - ANALYTICS_SERVICE_URL=http://analytics-service:3009
+      - AI_SERVICE_URL=http://ai-service:8000
+    depends_on:
+      redis:
+        condition: service_healthy
+
+  # ── Auth Service ──────────────────────────────────────────────────────────────
+  auth-service:
+    build: ./services/auth-service
+    restart: unless-stopped
+    volumes:
+      - ./keys/private.pem:/app/keys/private.pem:ro
+      - ./keys/public.pem:/app/keys/public.pem:ro
+    environment:
+      - NODE_ENV=${NODE_ENV:-production}
+      - PORT=3001
+      - DATABASE_URL=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/auth_db
+      - REDIS_URL=redis://redis:6379
+      - JWT_PRIVATE_KEY_PATH=/app/keys/private.pem
+      - JWT_PUBLIC_KEY_PATH=/app/keys/public.pem
+      - JWT_ACCESS_EXPIRY=${JWT_ACCESS_EXPIRY:-15m}
+      - JWT_REFRESH_EXPIRY=${JWT_REFRESH_EXPIRY:-7d}
+      - BCRYPT_COST=${BCRYPT_COST:-12}
+      - SMTP_HOST=${SMTP_HOST}
+      - SMTP_PORT=${SMTP_PORT}
+      - SMTP_USER=${SMTP_USER}
+      - SMTP_PASS=${SMTP_PASS}
+      - FROM_EMAIL=${FROM_EMAIL}
+      - INTERNAL_SERVICE_SECRET=${INTERNAL_SERVICE_SECRET}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  # ── Student Service ────────────────────────────────────────────────────────────
+  student-service:
+    build: ./services/student-service
+    restart: unless-stopped
+    environment:
+      - PORT=3002
+      - DATABASE_URL=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/student_db
+      - REDIS_URL=redis://redis:6379
+      - INTERNAL_SERVICE_SECRET=${INTERNAL_SERVICE_SECRET}
+      - MAX_DOCUMENT_SIZE_MB=${MAX_DOCUMENT_SIZE_MB:-10}
+      - NOTIFICATION_SERVICE_URL=http://notification-service:3007
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  # ── Faculty Service ────────────────────────────────────────────────────────────
+  faculty-service:
+    build: ./services/faculty-service
+    restart: unless-stopped
+    environment:
+      - PORT=3003
+      - DATABASE_URL=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/faculty_db
+      - INTERNAL_SERVICE_SECRET=${INTERNAL_SERVICE_SECRET}
+      - NOTIFICATION_SERVICE_URL=http://notification-service:3007
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  # ── Attendance Service ─────────────────────────────────────────────────────────
+  attendance-service:
+    build: ./services/attendance-service
+    restart: unless-stopped
+    environment:
+      - PORT=3004
+      - DATABASE_URL=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/attendance_db
+      - REDIS_URL=redis://redis:6379
+      - INTERNAL_SERVICE_SECRET=${INTERNAL_SERVICE_SECRET}
+      - NOTIFICATION_SERVICE_URL=http://notification-service:3007
+      - DEFAULT_ELIGIBILITY_THRESHOLD=${DEFAULT_ELIGIBILITY_THRESHOLD:-75}
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  # ── Examination Service ────────────────────────────────────────────────────────
+  examination-service:
+    build: ./services/examination-service
+    restart: unless-stopped
+    environment:
+      - PORT=3005
+      - DATABASE_URL=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/exam_db
+      - INTERNAL_SERVICE_SECRET=${INTERNAL_SERVICE_SECRET}
+      - ATTENDANCE_SERVICE_URL=http://attendance-service:3004
+      - FEE_SERVICE_URL=http://fee-service:3006
+      - NOTIFICATION_SERVICE_URL=http://notification-service:3007
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  # ── Fee Service ────────────────────────────────────────────────────────────────
+  fee-service:
+    build: ./services/fee-service
+    restart: unless-stopped
+    environment:
+      - PORT=3006
+      - DATABASE_URL=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/fee_db
+      - INTERNAL_SERVICE_SECRET=${INTERNAL_SERVICE_SECRET}
+      - NOTIFICATION_SERVICE_URL=http://notification-service:3007
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  # ── Notification Service ───────────────────────────────────────────────────────
+  notification-service:
+    build: ./services/notification-service
+    restart: unless-stopped
+    environment:
+      - PORT=3007
+      - DATABASE_URL=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/notification_db
+      - REDIS_URL=redis://redis:6379
+      - SMTP_HOST=${SMTP_HOST}
+      - SMTP_PORT=${SMTP_PORT}
+      - SMTP_USER=${SMTP_USER}
+      - SMTP_PASS=${SMTP_PASS}
+      - FROM_EMAIL=${FROM_EMAIL}
+      - INTERNAL_SERVICE_SECRET=${INTERNAL_SERVICE_SECRET}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  # ── Placement Service ──────────────────────────────────────────────────────────
+  placement-service:
+    build: ./services/placement-service
+    restart: unless-stopped
+    environment:
+      - PORT=3008
+      - DATABASE_URL=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/placement_db
+      - INTERNAL_SERVICE_SECRET=${INTERNAL_SERVICE_SECRET}
+      - NOTIFICATION_SERVICE_URL=http://notification-service:3007
+      - AI_SERVICE_URL=http://ai-service:8000
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  # ── Analytics Service ──────────────────────────────────────────────────────────
+  analytics-service:
+    build: ./services/analytics-service
+    restart: unless-stopped
+    environment:
+      - PORT=3009
+      - DATABASE_URL=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/analytics_db
+      - REDIS_URL=redis://redis:6379
+      - DASHBOARD_CACHE_TTL=${DASHBOARD_CACHE_TTL:-300}
+      - INTERNAL_SERVICE_SECRET=${INTERNAL_SERVICE_SECRET}
+      - STUDENT_SERVICE_URL=http://student-service:3002
+      - ATTENDANCE_SERVICE_URL=http://attendance-service:3004
+      - EXAM_SERVICE_URL=http://examination-service:3005
+      - FEE_SERVICE_URL=http://fee-service:3006
+      - AI_SERVICE_URL=http://ai-service:8000
+      - PLACEMENT_SERVICE_URL=http://placement-service:3008
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  # ── AI Service ────────────────────────────────────────────────────────────────
+  ai-service:
+    build: ./ai-service
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    environment:
+      - AI_SERVICE_PORT=8000
+      - MODEL_DIR=/app/models
+      - INTERNAL_SERVICE_SECRET=${INTERNAL_SERVICE_SECRET}
+      - NOTIFICATION_SERVICE_URL=http://notification-service:3007
+      - ANALYTICS_SERVICE_URL=http://analytics-service:3009
+      - STUDENT_SERVICE_URL=http://student-service:3002
+      - ATTENDANCE_SERVICE_URL=http://attendance-service:3004
+    depends_on:
+      notification-service:
+        condition: service_started
+
+  # ── pgAdmin — Database GUI ────────────────────────────────────────────────────
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    restart: unless-stopped
+    ports:
+      - "5050:80"
+    environment:
+      - PGADMIN_DEFAULT_EMAIL=admin@eduintel.edu
+      - PGADMIN_DEFAULT_PASSWORD=Admin@1234
+    depends_on:
+      - postgres
+
+  # ── Frontend ──────────────────────────────────────────────────────────────────
+  frontend:
+    build:
+      context: ./frontend
+      # VITE_ vars must be passed at build time — they get baked into the JS bundle
+      args:
+        - VITE_API_URL=/api
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+
+volumes:
+  pgdata:

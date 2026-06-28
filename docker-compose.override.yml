@@ -1,0 +1,3 @@
+# docker-compose.override.yml — Development overrides
+# Automatically loaded by docker compose in dev mode
+# Adds hot-reload, exposes all service ports for direct access

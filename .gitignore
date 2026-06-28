@@ -1,0 +1,39 @@
+# Dependencies
+node_modules/
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# Build output
+dist/
+build/
+
+# Environment files
+.env
+.env.local
+.env.production
+
+# JWT Keys — NEVER commit real keys
+keys/private.pem
+keys/public.pem
+
+# AI model binaries
+ai-service/app/models/*.pkl
+ai-service/training/data/
+
+# Logs
+*.log
+logs/
+
+# Docker volumes
+pgdata/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Editor
+.vscode/
+.idea/
+*.swp
