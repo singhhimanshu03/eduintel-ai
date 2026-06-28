@@ -7,34 +7,38 @@ interface Props { data: DataPoint[]; }
 export default function FeeCollectionChart({ data }: Props) {
   const { isDark } = useTheme();
 
-  const grid    = isDark ? '#ffffff14' : '#f0f0f0';
-  const tick    = isDark ? '#9ca3af'   : '#6b7280';
-  const tooltip = isDark ? { bg: '#1e1e1e', border: '#ffffff20', text: '#f1f1f1' }
-                         : { bg: '#ffffff', border: '#e5e7eb',   text: '#111827' };
-  const gradId  = isDark ? 'feeGradDark' : 'feeGradLight';
+  const grid    = isDark ? 'rgba(255,255,255,0.06)' : '#F1F5F9';
+  const tickClr = isDark ? '#64748B' : '#94A3B8';
+  const ttStyle = {
+    background: isDark ? '#1E293B' : '#FFFFFF',
+    border: `1px solid ${isDark ? '#334155' : '#E2E8F0'}`,
+    borderRadius: 8, color: isDark ? '#F8FAFC' : '#0F172A',
+    fontSize: 12, boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+  };
 
   return (
-    <div className="card p-4 transition-colors duration-200">
-      <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-200 mb-4">
-        Daily Fee Collection (Last 30 Days)
-      </h3>
+    <div className="card p-5">
+      <p className="text-xs font-semibold uppercase tracking-wide mb-4"
+        style={{ color: 'var(--color-text-faint)' }}>
+        Daily Fee Collection — Last 30 Days
+      </p>
       <ResponsiveContainer width="100%" height={220}>
-        <AreaChart data={data}>
+        <AreaChart data={data} margin={{ top: 4, right: 16, left: 0, bottom: 4 }}>
           <defs>
-            <linearGradient id={gradId} x1="0" y1="0" x2="0" y2="1">
-              <stop offset="5%"  stopColor="#4F46E5" stopOpacity={isDark ? 0.4 : 0.3} />
-              <stop offset="95%" stopColor="#4F46E5" stopOpacity={0} />
+            <linearGradient id="fee-grad" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="5%"  stopColor="#22C55E" stopOpacity={isDark ? 0.3 : 0.2} />
+              <stop offset="95%" stopColor="#22C55E" stopOpacity={0} />
             </linearGradient>
           </defs>
-          <CartesianGrid strokeDasharray="3 3" stroke={grid} />
-          <XAxis dataKey="date" tick={{ fontSize: 10, fill: tick }} />
-          <YAxis tick={{ fontSize: 11, fill: tick }} />
-          <Tooltip
-            contentStyle={{ background: tooltip.bg, border: `1px solid ${tooltip.border}`, borderRadius: 8, color: tooltip.text }}
-            formatter={(v: number) => [`₹${v.toLocaleString()}`, 'Collected']}
-          />
-          <Area type="monotone" dataKey="daily_collection"
-            stroke="#4F46E5" fill={`url(#${gradId})`} strokeWidth={2} />
+          <CartesianGrid strokeDasharray="3 3" stroke={grid} vertical={false} />
+          <XAxis dataKey="date" tick={{ fontSize: 10, fill: tickClr }} axisLine={false} tickLine={false} />
+          <YAxis tick={{ fontSize: 11, fill: tickClr }} axisLine={false} tickLine={false}
+            tickFormatter={v => `₹${(v / 1000).toFixed(0)}k`} />
+          <Tooltip contentStyle={ttStyle}
+            formatter={(v: number) => [`₹${v.toLocaleString()}`, 'Collected']} />
+          <Area type="monotone" dataKey="daily_collection" stroke="#22C55E" strokeWidth={2.5}
+            fill="url(#fee-grad)"
+            dot={false} activeDot={{ r: 5, fill: '#22C55E', stroke: 'var(--color-surface)', strokeWidth: 2 }} />
         </AreaChart>
       </ResponsiveContainer>
     </div>

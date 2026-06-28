@@ -4,28 +4,44 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { authService } from '../features/auth/authService';
+import { useTheme } from '../context/ThemeContext';
 import type { UserRole } from '../types';
 
 const schema = z.object({
-  email:       z.string().email('Invalid email'),
-  password:    z.string().min(8, 'Minimum 8 characters'),
-  role:        z.enum(['college_admin','faculty','student','parent','examination_cell','placement_cell']),
+  email:         z.string().email('Invalid email'),
+  password:      z.string().min(8, 'Minimum 8 characters'),
+  role:          z.enum(['college_admin','faculty','student','parent','examination_cell','placement_cell']),
   institutionId: z.string().uuid('Must be a valid UUID').optional().or(z.literal('')),
 });
 type FormData = z.infer<typeof schema>;
 
-const ROLES: { value: UserRole; label: string }[] = [
-  { value: 'college_admin',    label: 'College Admin' },
-  { value: 'faculty',          label: 'Faculty' },
-  { value: 'student',          label: 'Student' },
-  { value: 'parent',           label: 'Parent' },
-  { value: 'examination_cell', label: 'Examination Cell' },
-  { value: 'placement_cell',   label: 'Placement Cell' },
+const ROLES: { value: UserRole; label: string; icon: string }[] = [
+  { value: 'college_admin',    label: 'College Admin',    icon: '🏫' },
+  { value: 'faculty',          label: 'Faculty',          icon: '👨‍🏫' },
+  { value: 'student',          label: 'Student',          icon: '🎓' },
+  { value: 'parent',           label: 'Parent',           icon: '👨‍👩‍👧' },
+  { value: 'examination_cell', label: 'Examination Cell', icon: '📝' },
+  { value: 'placement_cell',   label: 'Placement Cell',   icon: '💼' },
 ];
 
+const SunIcon = () => (
+  <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+    <path strokeLinecap="round" strokeLinejoin="round"
+      d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364-6.364l-.707.707M6.343 17.657l-.707.707
+         M17.657 17.657l-.707-.707M6.343 6.343l-.707-.707M12 8a4 4 0 100 8 4 4 0 000-8z" />
+  </svg>
+);
+const MoonIcon = () => (
+  <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+    <path strokeLinecap="round" strokeLinejoin="round"
+      d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
+  </svg>
+);
+
 export default function Register() {
-  const navigate = useNavigate();
-  const [error, setError]     = useState('');
+  const navigate  = useNavigate();
+  const { isDark, toggleTheme } = useTheme();
+  const [error,   setError]   = useState('');
   const [success, setSuccess] = useState(false);
   const [loading, setLoading] = useState(false);
 
@@ -42,63 +58,152 @@ export default function Register() {
       });
       setSuccess(true);
     } catch (err: unknown) {
-      setError((err as Error).message || 'Registration failed');
+      setError((err as Error).message || 'Registration failed. Please try again.');
     } finally { setLoading(false); }
   };
 
-  const inputCls = 'w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary';
-
+  // ── Success state ──────────────────────────────────────────────────────────
   if (success) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-indigo-50 to-blue-100">
-        <div className="bg-white shadow-xl rounded-2xl p-8 w-full max-w-md text-center space-y-4">
-          <span className="text-5xl">✉️</span>
-          <h2 className="text-xl font-bold text-gray-800">Check your email</h2>
-          <p className="text-gray-500 text-sm">A verification link has been sent to your email address.</p>
-          <Link to="/login" className="block text-indigo-600 text-sm hover:underline">Back to Login →</Link>
+      <div className="min-h-screen flex items-center justify-center px-4"
+        style={{ backgroundColor: 'var(--color-bg)' }}>
+        <div className="w-full max-w-sm text-center space-y-5 p-10 rounded-2xl"
+          style={{ backgroundColor: 'var(--color-surface)', border: '1px solid var(--color-border)', boxShadow: 'var(--shadow-card-lg)' }}>
+          <div className="w-16 h-16 rounded-2xl flex items-center justify-center text-3xl mx-auto"
+            style={{ backgroundColor: 'var(--color-success-muted)' }}>✉️</div>
+          <div>
+            <h2 className="text-xl font-bold" style={{ color: 'var(--color-text-base)' }}>Check your email</h2>
+            <p className="text-sm mt-1" style={{ color: 'var(--color-text-muted)' }}>
+              A verification link has been sent to your email address.
+            </p>
+          </div>
+          <Link to="/login" className="btn-primary inline-flex" onClick={() => navigate('/login')}>
+            Back to Login →
+          </Link>
         </div>
       </div>
     );
   }
 
+  // ── Register form ──────────────────────────────────────────────────────────
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-indigo-50 to-blue-100">
-      <div className="bg-white shadow-xl rounded-2xl p-8 w-full max-w-md">
-        <div className="text-center mb-6">
-          <h1 className="text-2xl font-bold text-gray-900">Create Account</h1>
-          <p className="text-gray-500 text-sm mt-1">EduIntel AI Platform</p>
+    <div className="min-h-screen flex items-center justify-center px-4 py-8"
+      style={{ backgroundColor: 'var(--color-bg)' }}>
+
+      {/* Theme toggle */}
+      <button
+        type="button"
+        onClick={toggleTheme}
+        className="fixed top-4 right-4 p-2 rounded-xl transition-colors duration-150"
+        style={{ backgroundColor: 'var(--color-surface)', border: '1px solid var(--color-border)', color: 'var(--color-text-muted)' }}
+        aria-label="Toggle theme"
+      >
+        {isDark ? <SunIcon /> : <MoonIcon />}
+      </button>
+
+      <div className="w-full max-w-md rounded-2xl p-8"
+        style={{ backgroundColor: 'var(--color-surface)', border: '1px solid var(--color-border)', boxShadow: 'var(--shadow-card-lg)' }}>
+
+        {/* Header */}
+        <div className="text-center mb-7">
+          <div className="inline-flex items-center justify-center w-12 h-12 rounded-xl mb-4 text-white text-xl font-bold"
+            style={{ backgroundColor: 'var(--color-primary)' }}>EI</div>
+          <h1 className="text-2xl font-bold tracking-tight" style={{ color: 'var(--color-text-base)' }}>
+            Create Account
+          </h1>
+          <p className="text-sm mt-1" style={{ color: 'var(--color-text-muted)' }}>
+            Join EduIntel AI Platform
+          </p>
         </div>
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+
+        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4" noValidate>
+
+          {/* Email */}
           <div>
-            <label className="block text-xs font-medium text-gray-600 mb-1">Email</label>
-            <input type="email" {...register('email')} className={inputCls} placeholder="you@institution.edu" />
-            {errors.email && <p className="text-red-500 text-xs mt-1">{errors.email.message}</p>}
+            <label className="block text-sm font-medium mb-1.5" style={{ color: 'var(--color-text-base)' }}>
+              Email
+            </label>
+            <input type="email" {...register('email')} className="input-base"
+              placeholder="you@institution.edu" />
+            {errors.email && (
+              <p className="text-xs mt-1 flex items-center gap-1" style={{ color: 'var(--color-danger)' }}>
+                ⚠ {errors.email.message}
+              </p>
+            )}
           </div>
+
+          {/* Password */}
           <div>
-            <label className="block text-xs font-medium text-gray-600 mb-1">Password</label>
-            <input type="password" {...register('password')} className={inputCls} placeholder="••••••••" />
-            {errors.password && <p className="text-red-500 text-xs mt-1">{errors.password.message}</p>}
+            <label className="block text-sm font-medium mb-1.5" style={{ color: 'var(--color-text-base)' }}>
+              Password
+            </label>
+            <input type="password" {...register('password')} className="input-base"
+              placeholder="Min 8 characters" />
+            {errors.password && (
+              <p className="text-xs mt-1 flex items-center gap-1" style={{ color: 'var(--color-danger)' }}>
+                ⚠ {errors.password.message}
+              </p>
+            )}
           </div>
+
+          {/* Role */}
           <div>
-            <label className="block text-xs font-medium text-gray-600 mb-1">Role</label>
-            <select {...register('role')} className={inputCls}>
-              <option value="">Select role…</option>
-              {ROLES.map(r => <option key={r.value} value={r.value}>{r.label}</option>)}
+            <label className="block text-sm font-medium mb-1.5" style={{ color: 'var(--color-text-base)' }}>
+              Role
+            </label>
+            <select {...register('role')} className="input-base">
+              <option value="">Select your role…</option>
+              {ROLES.map(r => (
+                <option key={r.value} value={r.value}>{r.icon} {r.label}</option>
+              ))}
             </select>
-            {errors.role && <p className="text-red-500 text-xs mt-1">{errors.role.message}</p>}
+            {errors.role && (
+              <p className="text-xs mt-1" style={{ color: 'var(--color-danger)' }}>⚠ {errors.role.message}</p>
+            )}
           </div>
+
+          {/* Institution ID */}
           <div>
-            <label className="block text-xs font-medium text-gray-600 mb-1">Institution ID <span className="text-gray-400">(optional)</span></label>
-            <input type="text" {...register('institutionId')} className={inputCls} placeholder="UUID of your institution" />
-            {errors.institutionId && <p className="text-red-500 text-xs mt-1">{errors.institutionId.message}</p>}
+            <label className="block text-sm font-medium mb-1.5" style={{ color: 'var(--color-text-base)' }}>
+              Institution ID{' '}
+              <span className="font-normal text-xs" style={{ color: 'var(--color-text-faint)' }}>(optional)</span>
+            </label>
+            <input type="text" {...register('institutionId')} className="input-base"
+              placeholder="UUID of your institution" />
+            {errors.institutionId && (
+              <p className="text-xs mt-1" style={{ color: 'var(--color-danger)' }}>⚠ {errors.institutionId.message}</p>
+            )}
           </div>
-          {error && <div className="bg-red-50 border border-red-200 text-red-700 rounded-lg px-3 py-2 text-sm">{error}</div>}
-          <button type="submit" disabled={loading}
-            className="w-full bg-primary text-white font-semibold py-2.5 rounded-lg hover:bg-primary-dark transition disabled:opacity-50">
-            {loading ? 'Creating account…' : 'Create Account'}
+
+          {/* Error */}
+          {error && (
+            <div className="rounded-xl px-4 py-3 text-sm flex items-start gap-2"
+              style={{ borderLeft: '3px solid var(--color-danger)', backgroundColor: 'var(--color-danger-muted)', color: 'var(--color-danger)' }}>
+              <span>✕</span><span>{error}</span>
+            </div>
+          )}
+
+          {/* Submit */}
+          <button type="submit" disabled={loading} className="btn-primary w-full py-2.5 mt-2">
+            {loading ? (
+              <span className="flex items-center justify-center gap-2">
+                <svg className="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                </svg>
+                Creating account…
+              </span>
+            ) : 'Create Account'}
           </button>
-          <p className="text-center text-sm text-gray-500">
-            Already have an account? <Link to="/login" className="text-indigo-600 hover:underline">Sign in</Link>
+
+          <div className="divider my-2" />
+
+          <p className="text-center text-sm" style={{ color: 'var(--color-text-muted)' }}>
+            Already have an account?{' '}
+            <Link to="/login" className="font-semibold transition-colors duration-150"
+              style={{ color: 'var(--color-primary)' }}>
+              Sign in
+            </Link>
           </p>
         </form>
       </div>

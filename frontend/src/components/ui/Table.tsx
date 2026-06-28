@@ -8,41 +8,61 @@ interface Props<T> {
 
 export default function Table<T>({ columns, data, keyField, emptyMessage = 'No records found.' }: Props<T>) {
   return (
-    <div className="overflow-x-auto rounded-xl border border-gray-200 dark:border-white/10
-      bg-white dark:bg-[#1e1e1e] transition-colors duration-200">
-      <table className="min-w-full text-sm">
-        <thead className="bg-gray-50 dark:bg-[#252525] border-b border-gray-200 dark:border-white/10">
-          <tr>
-            {columns.map((col, i) => (
-              <th key={i} className="px-4 py-3 text-left text-xs font-semibold
-                text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                {col.header}
-              </th>
-            ))}
-          </tr>
-        </thead>
-        <tbody className="divide-y divide-gray-100 dark:divide-white/5">
-          {data.length === 0 ? (
+    <div className="card overflow-hidden" style={{ boxShadow: 'var(--shadow-card)' }}>
+      <div className="overflow-x-auto">
+        <table className="min-w-full text-sm">
+
+          {/* Sticky header */}
+          <thead style={{ backgroundColor: 'var(--color-elevated)', borderBottom: '1px solid var(--color-border)' }}>
             <tr>
-              <td colSpan={columns.length}
-                className="px-4 py-8 text-center text-gray-400 dark:text-gray-500">
-                {emptyMessage}
-              </td>
-            </tr>
-          ) : data.map(row => (
-            <tr key={String(row[keyField])}
-              className="hover:bg-gray-50 dark:hover:bg-white/5 transition-colors duration-100">
               {columns.map((col, i) => (
-                <td key={i} className="px-4 py-3 text-gray-700 dark:text-gray-300">
-                  {typeof col.accessor === 'function'
-                    ? col.accessor(row)
-                    : String(row[col.accessor] ?? '—')}
-                </td>
+                <th key={i}
+                  className="px-5 py-3 text-left font-semibold uppercase tracking-wider"
+                  style={{ fontSize: '0.6875rem', color: 'var(--color-text-faint)' }}>
+                  {col.header}
+                </th>
               ))}
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+
+          <tbody>
+            {data.length === 0 ? (
+              <tr>
+                <td colSpan={columns.length}
+                  className="px-5 py-12 text-center"
+                  style={{ color: 'var(--color-text-faint)', fontSize: '0.875rem' }}>
+                  <div className="flex flex-col items-center gap-2">
+                    <span className="text-2xl opacity-40">📭</span>
+                    {emptyMessage}
+                  </div>
+                </td>
+              </tr>
+            ) : data.map((row, rowIdx) => (
+              <tr key={String(row[keyField])}
+                className="group transition-colors duration-100"
+                style={{
+                  backgroundColor: rowIdx % 2 === 0 ? 'var(--color-surface)' : 'var(--color-elevated)',
+                  borderBottom: '1px solid var(--color-border)',
+                }}
+                onMouseEnter={e => {
+                  (e.currentTarget as HTMLTableRowElement).style.backgroundColor = 'var(--color-primary-muted)';
+                }}
+                onMouseLeave={e => {
+                  (e.currentTarget as HTMLTableRowElement).style.backgroundColor =
+                    rowIdx % 2 === 0 ? 'var(--color-surface)' : 'var(--color-elevated)';
+                }}>
+                {columns.map((col, i) => (
+                  <td key={i} className="px-5 py-3.5" style={{ color: 'var(--color-text-base)' }}>
+                    {typeof col.accessor === 'function'
+                      ? col.accessor(row)
+                      : String(row[col.accessor] ?? '—')}
+                  </td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }

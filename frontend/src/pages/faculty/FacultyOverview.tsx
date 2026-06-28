@@ -21,21 +21,31 @@ export default function FacultyOverview() {
         <StatCard title="Below Threshold"       value={att?.studentsBelowThreshold?.length ?? 0} icon="📉" color="yellow" />
       </div>
 
-      <div className="card p-5 transition-colors duration-200">
-        <h3 className="font-semibold text-gray-700 dark:text-gray-200 mb-4">🤖 AI-Flagged Students</h3>
+      <div className="card p-5">
+        <p className="text-xs font-semibold uppercase tracking-wide mb-4"
+          style={{ color: 'var(--color-text-faint)' }}>
+          🤖 AI-Flagged Students
+        </p>
         {flagged.length === 0 ? (
-          <p className="text-sm text-gray-400 dark:text-gray-500 text-center py-6">
-            No students flagged — class is performing well!
-          </p>
+          <div className="flex flex-col items-center py-8 gap-2">
+            <span className="text-2xl opacity-40">✅</span>
+            <p className="text-sm" style={{ color: 'var(--color-text-faint)' }}>
+              No students flagged — class is performing well!
+            </p>
+          </div>
         ) : (
           <div className="space-y-2">
             {flagged.slice(0, 15).map((s: { student_id: string; risk_score: string; recommended_action?: string }, i: number) => (
-              <div key={i} className="flex items-center justify-between p-3 rounded-lg
-                bg-gray-50 dark:bg-white/5">
+              <div key={i} className="flex items-center justify-between p-3 rounded-lg transition-colors duration-100"
+                style={{ backgroundColor: 'var(--color-elevated)' }}>
                 <div>
-                  <span className="font-medium text-sm text-gray-800 dark:text-white">{s.student_id}</span>
+                  <span className="font-semibold text-sm" style={{ color: 'var(--color-text-base)' }}>
+                    {s.student_id}
+                  </span>
                   {s.recommended_action && (
-                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">{s.recommended_action}</p>
+                    <p className="text-xs mt-0.5" style={{ color: 'var(--color-text-muted)' }}>
+                      {s.recommended_action}
+                    </p>
                   )}
                 </div>
                 <RiskBadge risk={s.risk_score} />

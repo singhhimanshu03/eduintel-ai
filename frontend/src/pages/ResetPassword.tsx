@@ -3,14 +3,14 @@ import { useSearchParams, useNavigate, Link } from 'react-router-dom';
 import { authService } from '../features/auth/authService';
 
 export default function ResetPassword() {
-  const [params]          = useSearchParams();
-  const navigate          = useNavigate();
-  const token             = params.get('token') ?? '';
-  const [password, setPassword] = useState('');
-  const [confirm, setConfirm]   = useState('');
-  const [loading, setLoading]   = useState(false);
-  const [error, setError]       = useState('');
-  const [done, setDone]         = useState(false);
+  const [params]    = useSearchParams();
+  const navigate    = useNavigate();
+  const token       = params.get('token') ?? '';
+  const [password,  setPassword]  = useState('');
+  const [confirm,   setConfirm]   = useState('');
+  const [loading,   setLoading]   = useState(false);
+  const [error,     setError]     = useState('');
+  const [done,      setDone]      = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -26,47 +26,69 @@ export default function ResetPassword() {
     } finally { setLoading(false); }
   };
 
-  const inputCls = 'w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary';
-
+  // Invalid token
   if (!token) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center space-y-3">
+      <div className="min-h-screen flex items-center justify-center px-4"
+        style={{ backgroundColor: 'var(--color-bg)' }}>
+        <div className="text-center space-y-4">
           <span className="text-4xl">⛔</span>
-          <p className="text-gray-600">Invalid reset link.</p>
-          <Link to="/forgot-password" className="text-indigo-600 hover:underline text-sm">Request a new one →</Link>
+          <p className="text-sm" style={{ color: 'var(--color-text-muted)' }}>Invalid reset link.</p>
+          <Link to="/forgot-password" className="text-sm font-medium" style={{ color: 'var(--color-primary)' }}>
+            Request a new one →
+          </Link>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-indigo-50 to-blue-100">
-      <div className="bg-white shadow-xl rounded-2xl p-8 w-full max-w-md">
+    <div className="min-h-screen flex items-center justify-center px-4"
+      style={{ backgroundColor: 'var(--color-bg)' }}>
+      <div className="w-full max-w-md rounded-2xl p-8"
+        style={{ backgroundColor: 'var(--color-surface)', border: '1px solid var(--color-border)', boxShadow: 'var(--shadow-card-lg)' }}>
+
         {done ? (
-          <div className="text-center space-y-3">
-            <span className="text-5xl">✅</span>
-            <h2 className="text-xl font-bold text-gray-800">Password reset!</h2>
-            <p className="text-gray-500 text-sm">Redirecting to login…</p>
+          <div className="text-center space-y-4">
+            <div className="w-16 h-16 rounded-2xl flex items-center justify-center text-3xl mx-auto"
+              style={{ backgroundColor: 'var(--color-success-muted)' }}>✅</div>
+            <div>
+              <h2 className="text-xl font-bold" style={{ color: 'var(--color-text-base)' }}>Password reset!</h2>
+              <p className="text-sm mt-1" style={{ color: 'var(--color-text-muted)' }}>Redirecting to login…</p>
+            </div>
           </div>
         ) : (
           <>
-            <div className="text-center mb-6">
-              <h1 className="text-2xl font-bold text-gray-900">Set New Password</h1>
-              <p className="text-gray-500 text-sm mt-1">Choose a strong password (min 8 characters)</p>
+            <div className="text-center mb-7">
+              <h1 className="text-2xl font-bold tracking-tight" style={{ color: 'var(--color-text-base)' }}>
+                Set New Password
+              </h1>
+              <p className="text-sm mt-1" style={{ color: 'var(--color-text-muted)' }}>
+                Choose a strong password (min 8 characters)
+              </p>
             </div>
             <form onSubmit={handleSubmit} className="space-y-4">
               <div>
-                <label className="block text-xs font-medium text-gray-600 mb-1">New Password</label>
-                <input type="password" value={password} onChange={e => setPassword(e.target.value)} className={inputCls} placeholder="••••••••" required />
+                <label className="block text-sm font-medium mb-1.5" style={{ color: 'var(--color-text-base)' }}>
+                  New Password
+                </label>
+                <input type="password" value={password} onChange={e => setPassword(e.target.value)}
+                  className="input-base" placeholder="••••••••" required />
               </div>
               <div>
-                <label className="block text-xs font-medium text-gray-600 mb-1">Confirm Password</label>
-                <input type="password" value={confirm} onChange={e => setConfirm(e.target.value)} className={inputCls} placeholder="••••••••" required />
+                <label className="block text-sm font-medium mb-1.5" style={{ color: 'var(--color-text-base)' }}>
+                  Confirm Password
+                </label>
+                <input type="password" value={confirm} onChange={e => setConfirm(e.target.value)}
+                  className="input-base" placeholder="••••••••" required />
               </div>
-              {error && <div className="bg-red-50 border border-red-200 text-red-700 rounded-lg px-3 py-2 text-sm">{error}</div>}
-              <button type="submit" disabled={loading}
-                className="w-full bg-primary text-white font-semibold py-2.5 rounded-lg hover:bg-primary-dark transition disabled:opacity-50">
+              {error && (
+                <div className="rounded-xl px-4 py-3 text-sm"
+                  style={{ borderLeft: '3px solid var(--color-danger)', backgroundColor: 'var(--color-danger-muted)', color: 'var(--color-danger)' }}>
+                  {error}
+                </div>
+              )}
+              <button type="submit" disabled={loading} className="btn-primary w-full py-2.5">
                 {loading ? 'Resetting…' : 'Reset Password'}
               </button>
             </form>

@@ -3,14 +3,19 @@ import { useFeeStatus } from '../../hooks/useFees';
 import PageHeader from '../../components/ui/PageHeader';
 import LoadingSpinner from '../../components/ui/LoadingSpinner';
 
-const STATUS_STYLES: Record<string, string> = {
-  paid:            'bg-green-50 border-green-200 text-green-800',
-  partially_paid:  'bg-yellow-50 border-yellow-200 text-yellow-800',
-  unpaid:          'bg-red-50 border-red-200 text-red-800',
-};
-
-const STATUS_ICONS: Record<string, string> = {
-  paid: '✅', partially_paid: '⚠️', unpaid: '❌',
+const STATUS_CONFIG: Record<string, { icon: string; color: string; muted: string; label: string }> = {
+  paid: {
+    icon: '✓', color: 'var(--color-success)', muted: 'var(--color-success-muted)',
+    label: 'Paid in Full',
+  },
+  partially_paid: {
+    icon: '◑', color: 'var(--color-warning)', muted: 'var(--color-warning-muted)',
+    label: 'Partially Paid',
+  },
+  unpaid: {
+    icon: '✗', color: 'var(--color-danger)', muted: 'var(--color-danger-muted)',
+    label: 'Unpaid',
+  },
 };
 
 export default function FeeStatus() {
@@ -19,82 +24,117 @@ export default function FeeStatus() {
 
   if (isLoading) return <LoadingSpinner message="Loading fee status…" />;
 
-  const status: string = fee?.fee_status ?? 'unpaid';
-  const pct = fee?.total_fee ? Math.min(100, Math.round(((fee.paid_amount ?? 0) / fee.total_fee) * 100)) : 0;
+  const status = fee?.fee_status ?? 'unpaid';
+  const cfg    = STATUS_CONFIG[status] ?? STATUS_CONFIG.unpaid;
+  const pct    = fee?.total_fee
+    ? Math.min(100, Math.round(((fee.paid_amount ?? 0) / fee.total_fee) * 100))
+    : 0;
 
   return (
-    <div className="space-y-6 max-w-lg">
-      <PageHeader title="Fee Status" subtitle="Your current fee payment status" />
+    <div className="space-y-5 max-w-lg">
+      <PageHeader title="Fee Status" subtitle="Your current semester fee payment status" />
 
-      {/* Status card */}
-      <div className={`rounded-xl border p-6 ${STATUS_STYLES[status] ?? STATUS_STYLES.unpaid}`}>
-        <div className="flex items-center gap-3 mb-4">
-          <span className="text-3xl">{STATUS_ICONS[status] ?? '❓'}</span>
-          <div>
-            <p className="text-xs font-medium opacity-70">Payment Status</p>
-            <p className="text-xl font-bold capitalize">{status.replace('_', ' ')}</p>
+      {/* Main status card */}
+      <div className="card overflow-hidden">
+        {/* Coloured top stripe */}
+        <div className="h-1.5 w-full" style={{ backgroundColor: cfg.color }} />
+
+        <div className="p-6">
+          <div className="flex items-center gap-4 mb-6">
+            <div className="w-12 h-12 rounded-xl flex items-center justify-center text-xl font-bold text-white flex-shrink-0"
+              style={{ backgroundColor: cfg.color }}>
+              {cfg.icon}
+            </div>
+            <div>
+              <p className="text-2xs uppercase tracking-wide" style={{ color: 'var(--color-text-faint)' }}>
+                Payment Status
+              </p>
+              <p className="text-xl font-bold mt-0.5" style={{ color: cfg.color }}>{cfg.label}</p>
+            </div>
           </div>
+
+          {fee ? (
+            <div className="grid grid-cols-3 gap-px rounded-xl overflow-hidden"
+              style={{ backgroundColor: 'var(--color-border)' }}>
+              {[
+                { label: 'Total Fee',   value: `₹${Number(fee.total_fee ?? 0).toLocaleString()}` },
+                { label: 'Amount Paid', value: `₹${Number(fee.paid_amount ?? 0).toLocaleString()}` },
+                { label: 'Balance Due', value: `₹${Number(fee.balance ?? 0).toLocaleString()}` },
+              ].map(({ label, value }) => (
+                <div key={label} className="text-center py-4 px-2"
+                  style={{ backgroundColor: 'var(--color-surface)' }}>
+                  <p className="text-2xs uppercase tracking-wide mb-1" style={{ color: 'var(--color-text-faint)' }}>
+                    {label}
+                  </p>
+                  <p className="text-base font-bold" style={{ color: 'var(--color-text-base)' }}>{value}</p>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="text-sm" style={{ color: 'var(--color-text-muted)' }}>
+              No fee record found. Please contact the admin.
+            </p>
+          )}
         </div>
-
-        {fee ? (
-          <div className="grid grid-cols-3 gap-4 text-center">
-            {[
-              { label: 'Total Fee',    value: `₹${Number(fee.total_fee ?? 0).toLocaleString()}` },
-              { label: 'Amount Paid', value: `₹${Number(fee.paid_amount ?? 0).toLocaleString()}` },
-              { label: 'Balance Due', value: `₹${Number(fee.balance ?? 0).toLocaleString()}` },
-            ].map(({ label, value }) => (
-              <div key={label}>
-                <p className="text-xs opacity-70">{label}</p>
-                <p className="text-lg font-bold">{value}</p>
-              </div>
-            ))}
-          </div>
-        ) : (
-          <p className="text-sm opacity-70">No fee record found. Please contact the admin.</p>
-        )}
       </div>
 
       {/* Progress bar */}
       {fee && fee.total_fee > 0 && (
-        <div className="bg-white rounded-xl border border-gray-200 p-5">
-          <div className="flex justify-between text-sm text-gray-600 mb-2">
-            <span>Payment Progress</span>
-            <span className="font-semibold">{pct}%</span>
+        <div className="card p-5">
+          <div className="flex items-center justify-between mb-3">
+            <p className="text-sm font-medium" style={{ color: 'var(--color-text-base)' }}>
+              Payment Progress
+            </p>
+            <span className="text-sm font-bold" style={{ color: cfg.color }}>{pct}%</span>
           </div>
-          <div className="w-full bg-gray-200 rounded-full h-4 overflow-hidden">
+          <div className="h-2.5 rounded-full overflow-hidden" style={{ backgroundColor: 'var(--color-elevated)' }}>
             <div
-              className={`h-4 rounded-full transition-all duration-500 ${
-                pct === 100 ? 'bg-green-500' : pct >= 50 ? 'bg-yellow-500' : 'bg-red-500'
-              }`}
-              style={{ width: `${pct}%` }}
+              className="h-full rounded-full transition-all duration-700"
+              style={{ width: `${pct}%`, backgroundColor: cfg.color }}
             />
           </div>
           {fee.last_payment_date && (
-            <p className="text-xs text-gray-400 mt-2">
-              Last payment: {new Date(fee.last_payment_date).toLocaleDateString()}
+            <p className="text-2xs mt-2" style={{ color: 'var(--color-text-faint)' }}>
+              Last payment: {new Date(fee.last_payment_date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
             </p>
           )}
         </div>
       )}
 
-      {/* Hall ticket eligibility notice */}
-      <div className={`rounded-xl border p-4 text-sm ${
-        status === 'paid' ? 'bg-green-50 border-green-200 text-green-700' : 'bg-red-50 border-red-200 text-red-700'
-      }`}>
-        <p className="font-semibold mb-1">
-          {status === 'paid' ? '✅ Hall Ticket Eligible (Fee)' : '🚫 Hall Ticket Blocked (Fee Unpaid)'}
-        </p>
-        <p className="text-xs">
-          {status === 'paid'
-            ? 'Your fee status satisfies the hall ticket requirement.'
-            : 'Clear your outstanding dues to unlock hall ticket generation.'}
-        </p>
+      {/* Hall ticket eligibility */}
+      <div className="card p-4 flex items-start gap-3">
+        <div className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0"
+          style={{
+            backgroundColor: status === 'paid' ? 'var(--color-success-muted)' : 'var(--color-danger-muted)',
+          }}>
+          <span>{status === 'paid' ? '🎫' : '🚫'}</span>
+        </div>
+        <div>
+          <p className="text-sm font-semibold" style={{
+            color: status === 'paid' ? 'var(--color-success)' : 'var(--color-danger)',
+          }}>
+            {status === 'paid' ? 'Hall Ticket Eligible (Fee)' : 'Hall Ticket Blocked — Fee Unpaid'}
+          </p>
+          <p className="text-xs mt-0.5" style={{ color: 'var(--color-text-muted)' }}>
+            {status === 'paid'
+              ? 'Your fee status satisfies the hall ticket requirement.'
+              : 'Clear your outstanding dues to unlock hall ticket generation.'}
+          </p>
+        </div>
       </div>
 
-      {/* Contact info */}
-      <div className="bg-gray-50 rounded-xl border border-gray-200 p-4 text-sm text-gray-600">
-        <p className="font-medium text-gray-700 mb-1">💡 Having issues with your fee record?</p>
-        <p className="text-xs">Contact the accounts department or raise a query with your college admin. Bring your payment receipts for verification.</p>
+      {/* Help note */}
+      <div className="card-elevated rounded-xl p-4 flex items-start gap-3">
+        <span className="text-base flex-shrink-0">💡</span>
+        <div>
+          <p className="text-sm font-medium" style={{ color: 'var(--color-text-base)' }}>
+            Having issues with your fee record?
+          </p>
+          <p className="text-xs mt-0.5" style={{ color: 'var(--color-text-muted)' }}>
+            Contact the accounts department or raise a query with your college admin.
+            Bring your payment receipts for verification.
+          </p>
+        </div>
       </div>
     </div>
   );

@@ -33,25 +33,31 @@ export default function AdminOverview() {
         <FeeCollectionChart data={fees?.dailyCollection ?? []} />
       </div>
 
-      <div className="card p-4 transition-colors duration-200">
-        <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-200 mb-3">
+      <div className="card p-5">
+        <p className="text-xs font-semibold uppercase tracking-wide mb-3"
+          style={{ color: 'var(--color-text-faint)' }}>
           ⚠️ Students Below Attendance Threshold
-        </h3>
+        </p>
         {att?.studentsBelowThreshold?.length ? (
-          <div className="space-y-2">
+          <div className="divide-y" style={{ borderColor: 'var(--color-border)' }}>
             {att.studentsBelowThreshold.slice(0, 10).map((s: { student_id: string; subject_code: string; attendance_percentage: number }, i: number) => (
-              <div key={i} className="flex items-center justify-between py-2
-                border-b border-gray-100 dark:border-white/5 last:border-0">
+              <div key={i} className="flex items-center justify-between py-2.5">
                 <div>
-                  <span className="font-medium text-sm text-gray-800 dark:text-gray-200">{s.student_id}</span>
-                  <span className="ml-2 text-xs text-gray-500 dark:text-gray-400">{s.subject_code}</span>
+                  <span className="font-medium text-sm" style={{ color: 'var(--color-text-base)' }}>
+                    {s.student_id}
+                  </span>
+                  <span className="ml-2 text-xs" style={{ color: 'var(--color-text-faint)' }}>
+                    {s.subject_code}
+                  </span>
                 </div>
-                <span className="text-sm font-semibold text-red-600 dark:text-red-400">{s.attendance_percentage}%</span>
+                <span className="text-sm font-semibold" style={{ color: 'var(--color-danger)' }}>
+                  {s.attendance_percentage}%
+                </span>
               </div>
             ))}
           </div>
         ) : (
-          <p className="text-sm text-gray-400 dark:text-gray-500 py-4 text-center">
+          <p className="text-sm py-6 text-center" style={{ color: 'var(--color-text-faint)' }}>
             All students are above the threshold 🎉
           </p>
         )}

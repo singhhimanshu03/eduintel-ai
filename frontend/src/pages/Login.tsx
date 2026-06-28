@@ -99,30 +99,31 @@ export default function Login() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center px-4
-      bg-gradient-to-br from-indigo-50 via-blue-50 to-slate-100
-      dark:bg-[#121212] dark:bg-none transition-colors duration-200">
+    <div className="min-h-screen flex items-center justify-center px-4"
+      style={{ backgroundColor: 'var(--color-bg)' }}>
 
-      {/* Global theme toggle — top right */}
+      {/* Global theme toggle */}
       <button
         type="button"
         onClick={toggleTheme}
-        className="fixed top-4 right-4 p-2 rounded-xl transition-colors duration-150
-          bg-white dark:bg-[#1e1e1e]
-          border border-gray-200 dark:border-white/10
-          text-gray-600 dark:text-yellow-400
-          hover:bg-gray-50 dark:hover:bg-white/5"
+        className="fixed top-4 right-4 p-2 rounded-xl transition-colors duration-150"
+        style={{
+          backgroundColor: 'var(--color-surface)',
+          border: '1px solid var(--color-border)',
+          color: 'var(--color-text-muted)',
+        }}
         aria-label="Toggle theme"
       >
         {isDark ? <SunIcon /> : <MoonIcon />}
       </button>
 
       {/* Card */}
-      <div className="w-full max-w-md rounded-2xl p-8
-        bg-white dark:bg-[#1e1e1e]
-        border border-gray-100 dark:border-white/10
-        shadow-2xl shadow-indigo-100/40 dark:shadow-black/40
-        transition-colors duration-200">
+      <div className="w-full max-w-md rounded-2xl p-8"
+        style={{
+          backgroundColor: 'var(--color-surface)',
+          border: '1px solid var(--color-border)',
+          boxShadow: 'var(--shadow-card-lg)',
+        }}>
 
         {/* Logo */}
         <div className="text-center mb-8">
@@ -136,17 +137,20 @@ export default function Login() {
                    c-1.746 0-3.332.477-4.5 1.253" />
             </svg>
           </div>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">EduIntel AI</h1>
-          <p className="text-sm mt-1 text-gray-500 dark:text-gray-400">Academic Intelligence Platform</p>
+          <h1 className="text-2xl font-bold tracking-tight" style={{ color: 'var(--color-text-base)' }}>
+            EduIntel AI
+          </h1>
+          <p className="text-sm mt-1" style={{ color: 'var(--color-text-muted)' }}>
+            Academic Intelligence Platform
+          </p>
         </div>
 
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-5" noValidate>
 
           {/* Email */}
           <div>
-            <label className="block text-sm font-medium mb-1.5 text-gray-700 dark:text-gray-300">
-              Email
-            </label>
+            <label className="block text-sm font-medium mb-1.5"
+            style={{ color: 'var(--color-text-base)' }}>Email</label>
             <input type="email" autoComplete="email" placeholder="you@institution.edu"
               {...register('email')}
               className="input-base"
@@ -160,9 +164,8 @@ export default function Login() {
 
           {/* Password */}
           <div>
-            <label className="block text-sm font-medium mb-1.5 text-gray-700 dark:text-gray-300">
-              Password
-            </label>
+            <label className="block text-sm font-medium mb-1.5"
+            style={{ color: 'var(--color-text-base)' }}>Password</label>
             <div className="relative">
               <input
                 type={showPass ? 'text' : 'password'}
@@ -198,50 +201,38 @@ export default function Login() {
 
           {/* Remember me + Forgot password */}
           <div className="flex items-center justify-between">
-            <label className="flex items-center gap-2 cursor-pointer select-none text-sm
-              text-gray-600 dark:text-gray-400">
+            <label className="flex items-center gap-2 cursor-pointer select-none text-sm"
+              style={{ color: 'var(--color-text-muted)' }}>
               <input type="checkbox" checked={rememberMe} onChange={e => setRememberMe(e.target.checked)}
                 className="w-4 h-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer" />
               Remember me
             </label>
             <Link to="/forgot-password"
-              className="text-sm font-medium text-indigo-600 dark:text-indigo-400
-                hover:text-indigo-800 dark:hover:text-indigo-300 transition-colors">
+              className="text-sm font-medium transition-colors duration-150"
+              style={{ color: 'var(--color-primary)' }}>
               Forgot password?
             </Link>
           </div>
 
-          {/* Error */}
           {error && (
-            <div className="rounded-xl px-4 py-3 text-sm flex items-start gap-2
-              bg-red-50 dark:bg-red-900/30
-              border border-red-200 dark:border-red-700/50
-              text-red-700 dark:text-red-300">
-              <span className="mt-0.5">✕</span><span>{error}</span>
+            <div className="card-elevated rounded-xl px-4 py-3 text-sm flex items-start gap-2"
+              style={{ borderLeft: '3px solid var(--color-danger)', color: 'var(--color-danger)' }}>
+              <span className="mt-0.5 flex-shrink-0">✕</span><span>{error}</span>
             </div>
           )}
 
           {/* Submit */}
-          <button type="submit" disabled={loading}
-            className="w-full bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800
-              text-white font-semibold py-2.5 rounded-xl
-              shadow-md shadow-indigo-500/20 hover:shadow-lg hover:shadow-indigo-500/30
-              transition-all duration-150
-              disabled:opacity-60 disabled:cursor-not-allowed
-              focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2
-              dark:focus:ring-offset-[#1e1e1e]
-              flex items-center justify-center">
+          <button type="submit" disabled={loading} className="btn-primary w-full py-2.5">
             {loading ? <><Spinner />Signing in…</> : 'Sign In'}
           </button>
         </form>
 
-        <div className="my-6 border-t border-gray-100 dark:border-white/10" />
+        <div className="my-6 divider" />
 
-        <p className="text-center text-sm text-gray-500 dark:text-gray-400">
+        <p className="text-center text-sm" style={{ color: 'var(--color-text-muted)' }}>
           Don't have an account?{' '}
-          <Link to="/register"
-            className="font-semibold text-indigo-600 dark:text-indigo-400
-              hover:text-indigo-800 dark:hover:text-indigo-300 transition-colors">
+          <Link to="/register" className="font-semibold transition-colors duration-150"
+            style={{ color: 'var(--color-primary)' }}>
             Register here
           </Link>
         </p>

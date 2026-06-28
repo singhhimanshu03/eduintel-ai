@@ -105,7 +105,7 @@ export default function AIInsights() {
       }).then(r => r.data.data ?? r.data),
   });
 
-  const inputCls = 'border border-gray-300 rounded-lg px-3 py-2 text-sm w-full focus:outline-none focus:ring-2 focus:ring-indigo-400';
+  const inputCls = 'input-base';
 
   /* ── Forecast chart data ─────────────────────────────────────────────────── */
   const forecastData: ForecastWeek[] = forecastMutation.data?.data?.forecast ?? [];
@@ -126,17 +126,18 @@ export default function AIInsights() {
     <div className="space-y-6">
       <PageHeader title="AI Insights" subtitle="Machine learning predictions and academic intelligence" />
 
-      {/* Tabs */}
-      <div className="flex gap-1 bg-gray-100 rounded-xl p-1 w-fit">
+      <div className="flex gap-1 rounded-xl p-1 w-fit"
+        style={{ backgroundColor: 'var(--color-elevated)' }}>
         {TABS.map(tab => (
           <button
             key={tab.id}
             onClick={() => setActiveTab(tab.id)}
-            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition ${
-              activeTab === tab.id
-                ? 'bg-white text-indigo-700 shadow-sm'
-                : 'text-gray-500 hover:text-gray-700'
-            }`}
+            className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors duration-150"
+            style={{
+              backgroundColor: activeTab === tab.id ? 'var(--color-surface)' : 'transparent',
+              color: activeTab === tab.id ? 'var(--color-primary)' : 'var(--color-text-muted)',
+              boxShadow: activeTab === tab.id ? 'var(--shadow-card)' : 'none',
+            }}
           >
             <span>{tab.icon}</span>
             <span>{tab.label}</span>
@@ -147,8 +148,10 @@ export default function AIInsights() {
       {/* ── Eligibility Risk Tab ─────────────────────────────────────────── */}
       {activeTab === 'eligibility' && (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <div className="bg-white rounded-xl border border-gray-200 p-5 space-y-4">
-            <h3 className="font-semibold text-gray-700">Run Eligibility Risk Prediction</h3>
+          <div className="card p-5 space-y-4">
+            <h3 className="font-semibold text-sm" style={{ color: 'var(--color-text-base)' }}>
+              Run Eligibility Risk Prediction
+            </h3>
             <div className="grid grid-cols-2 gap-3">
               {[
                 ['Student ID', 'studentId', 'STU001'],
@@ -179,14 +182,16 @@ export default function AIInsights() {
             </button>
 
             {eligResult && (
-              <div className="bg-gray-50 rounded-lg p-4 space-y-3">
+              <div className="card-elevated rounded-xl p-4 space-y-3">
                 <div className="flex items-center justify-between">
-                  <span className="text-sm font-medium text-gray-700">Risk Score</span>
+                  <span className="text-sm font-medium" style={{ color: 'var(--color-text-base)' }}>Risk Score</span>
                   <RiskBadge risk={eligResult.risk_score} />
                 </div>
                 <div className="flex items-center justify-between">
-                  <span className="text-sm text-gray-600">Confidence</span>
-                  <span className="text-sm font-semibold text-indigo-700">{(eligResult.confidence * 100).toFixed(1)}%</span>
+                  <span className="text-sm" style={{ color: 'var(--color-text-muted)' }}>Confidence</span>
+                  <span className="text-sm font-semibold" style={{ color: 'var(--color-primary)' }}>
+                    {(eligResult.confidence * 100).toFixed(1)}%
+                  </span>
                 </div>
               </div>
             )}
@@ -203,9 +208,11 @@ export default function AIInsights() {
       {/* ── Dropout Risk Tab ─────────────────────────────────────────────── */}
       {activeTab === 'dropout' && (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <div className="bg-white rounded-xl border border-gray-200 p-5 space-y-4">
-            <h3 className="font-semibold text-gray-700">Dropout Risk Analysis</h3>
-            <p className="text-xs text-gray-500">Enter comma-separated values for the last 3 semesters.</p>
+          <div className="card p-5 space-y-4">
+            <h3 className="font-semibold text-sm" style={{ color: 'var(--color-text-base)' }}>
+              Dropout Risk Analysis
+            </h3>
+            <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>Enter comma-separated values for the last 3 semesters.</p>
             <div className="grid grid-cols-2 gap-3">
               {[
                 ['Student ID',      'studentId','STU001'],
@@ -261,8 +268,8 @@ export default function AIInsights() {
             )}
           </div>
 
-          {/* Probability gauge */}
-          <div className="bg-white rounded-xl border border-gray-200 p-5 flex flex-col items-center justify-center">
+          {/* Dropout gauge */}
+          <div className="card p-5 flex flex-col items-center justify-center">
             {dropResult ? (
               <>
                 <div className="relative w-40 h-40">
@@ -273,24 +280,24 @@ export default function AIInsights() {
                       strokeWidth="12" strokeLinecap="round"
                       strokeDasharray={`${dropResult.dropout_probability * 314} 314`} />
                   </svg>
-                  <div className="absolute inset-0 flex flex-col items-center justify-center rotate-0">
-                    <span className="text-2xl font-bold text-gray-800">
+                  <div className="absolute inset-0 flex flex-col items-center justify-center">
+                    <span className="text-2xl font-bold" style={{ color: 'var(--color-text-base)' }}>
                       {(dropResult.dropout_probability * 100).toFixed(0)}%
                     </span>
-                    <span className="text-xs text-gray-500">dropout risk</span>
+                    <span className="text-xs" style={{ color: 'var(--color-text-faint)' }}>dropout risk</span>
                   </div>
                 </div>
-                <p className="mt-4 text-sm text-gray-600 text-center">
-                  Student <strong>{dropForm.studentId}</strong> has a
-                  <span className={`font-bold mx-1 ${
-                    dropResult.risk_score === 'High' ? 'text-red-600' :
-                    dropResult.risk_score === 'Medium' ? 'text-yellow-600' : 'text-green-600'
-                  }`}>{dropResult.risk_score.toLowerCase()} risk</span>
-                  of dropping out.
-                </p>
+              <p className="mt-4 text-sm text-center" style={{ color: 'var(--color-text-muted)' }}>
+                Student <strong style={{ color: 'var(--color-text-base)' }}>{dropForm.studentId}</strong> has a
+                <span className="font-bold mx-1" style={{
+                  color: dropResult.risk_score === 'High' ? 'var(--color-danger)' :
+                         dropResult.risk_score === 'Medium' ? 'var(--color-warning)' : 'var(--color-success)',
+                }}>{dropResult.risk_score.toLowerCase()} risk</span>
+                of dropping out.
+              </p>
               </>
             ) : (
-              <div className="text-center text-gray-400">
+              <div className="text-center" style={{ color: 'var(--color-text-faint)' }}>
                 <p className="text-4xl mb-3">🔮</p>
                 <p className="text-sm">Run the dropout analysis to see the probability gauge.</p>
               </div>
@@ -379,8 +386,10 @@ export default function AIInsights() {
       {/* ── Performance Prediction Tab ──────────────────────────────────── */}
       {activeTab === 'performance' && (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <div className="bg-white rounded-xl border border-gray-200 p-5 space-y-4">
-            <h3 className="font-semibold text-gray-700">Performance Prediction</h3>
+          <div className="card p-5 space-y-4">
+            <h3 className="font-semibold text-sm" style={{ color: 'var(--color-text-base)' }}>
+              Performance Prediction
+            </h3>
             <div className="grid grid-cols-2 gap-3">
               {[
                 ['Student ID',    'studentId',  'STU001'],

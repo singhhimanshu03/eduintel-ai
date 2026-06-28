@@ -2,37 +2,52 @@ import { PieChart, Pie, Cell, Tooltip, Legend, ResponsiveContainer } from 'recha
 import { useTheme } from '../../context/ThemeContext';
 
 interface Props { low: number; medium: number; high: number; }
-const COLORS = ['#10B981', '#F59E0B', '#EF4444'];
+
+const SLICES = [
+  { key: 'Low',    fill: '#22C55E' },
+  { key: 'Medium', fill: '#F59E0B' },
+  { key: 'High',   fill: '#EF4444' },
+];
 
 export default function RiskDistributionChart({ low, medium, high }: Props) {
   const { isDark } = useTheme();
 
-  const tooltip = isDark ? { bg: '#1e1e1e', border: '#ffffff20', text: '#f1f1f1' }
-                         : { bg: '#ffffff', border: '#e5e7eb',   text: '#111827' };
-  const tick    = isDark ? '#9ca3af' : '#6b7280';
+  const tickClr = isDark ? '#94A3B8' : '#64748B';
+  const ttStyle = {
+    background: isDark ? '#1E293B' : '#FFFFFF',
+    border: `1px solid ${isDark ? '#334155' : '#E2E8F0'}`,
+    borderRadius: 8, color: isDark ? '#F8FAFC' : '#0F172A',
+    fontSize: 12, boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+  };
 
   const data = [
-    { name: 'Low Risk',    value: low    },
+    { name: 'Low Risk',    value: low },
     { name: 'Medium Risk', value: medium },
-    { name: 'High Risk',   value: high   },
+    { name: 'High Risk',   value: high },
   ];
 
   return (
-    <div className="card p-4 transition-colors duration-200">
-      <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-200 mb-4">
+    <div className="card p-5">
+      <p className="text-xs font-semibold uppercase tracking-wide mb-4"
+        style={{ color: 'var(--color-text-faint)' }}>
         Student Risk Distribution
-      </h3>
+      </p>
       <ResponsiveContainer width="100%" height={220}>
         <PieChart>
-          <Pie data={data} cx="50%" cy="50%" outerRadius={80} dataKey="value"
-            label={({ name, value }) => `${name}: ${value}`}
-            labelLine={{ stroke: tick }}>
-            {data.map((_, i) => <Cell key={i} fill={COLORS[i]} />)}
+          <Pie data={data} cx="50%" cy="50%" innerRadius={55} outerRadius={85}
+            dataKey="value" paddingAngle={3}
+            label={({ name, percent }) => percent > 0 ? `${(percent * 100).toFixed(0)}%` : ''}
+            labelLine={{ stroke: tickClr, strokeWidth: 1 }}>
+            {data.map((_, i) => (
+              <Cell key={i} fill={SLICES[i].fill} stroke="none" />
+            ))}
           </Pie>
-          <Tooltip
-            contentStyle={{ background: tooltip.bg, border: `1px solid ${tooltip.border}`, borderRadius: 8, color: tooltip.text }}
+          <Tooltip contentStyle={ttStyle} formatter={(v: number, n: string) => [v, n]} />
+          <Legend
+            formatter={(value) => (
+              <span style={{ color: tickClr, fontSize: 12 }}>{value}</span>
+            )}
           />
-          <Legend wrapperStyle={{ color: tick, fontSize: 12 }} />
         </PieChart>
       </ResponsiveContainer>
     </div>

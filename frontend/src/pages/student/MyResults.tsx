@@ -5,10 +5,18 @@ import LoadingSpinner from '../../components/ui/LoadingSpinner';
 import PerformanceTrendChart from '../../components/charts/PerformanceTrendChart';
 
 interface Mark {
-  semester: number; subject_code: string;
+  semester: number; subject_code: string; subject_name?: string;
   internal_marks: number; semester_marks: number;
   total_marks: number; grade: string; gpa_points: number; is_backlog: boolean;
 }
+
+const gradeColor = (g: string) => {
+  if (g === 'O')                     return { color: '#22C55E' };
+  if (g === 'A+' || g === 'A')       return { color: '#6366F1' };
+  if (g === 'B+' || g === 'B')       return { color: '#F59E0B' };
+  if (g === 'F')                     return { color: '#EF4444' };
+  return { color: 'var(--color-text-muted)' };
+};
 
 export default function MyResults() {
   const { userId } = useAuth();
@@ -16,7 +24,7 @@ export default function MyResults() {
 
   if (isLoading) return <LoadingSpinner />;
 
-  const marks: Mark[] = data?.marks ?? [];
+  const marks: Mark[]  = data?.marks ?? [];
   const semGPA: Record<string, number> = data?.semesterGPA ?? {};
   const backlogs: Mark[] = data?.backlogs ?? [];
 
@@ -26,64 +34,173 @@ export default function MyResults() {
 
   const semesters = [...new Set(marks.map(m => m.semester))].sort();
 
+  // CGPA
+  const gpaValues = Object.values(semGPA);
+  const cgpa = gpaValues.length
+    ? (gpaValues.reduce((a, b) => a + b, 0) / gpaValues.length).toFixed(2)
+    : null;
+
   return (
     <div className="space-y-6">
       <PageHeader title="My Results" subtitle="Semester-wise academic performance" />
 
-      {trendData.length > 0 && <PerformanceTrendChart data={trendData} />}
+      {/* CGPA + backlog summary strip */}
+      {(cgpa || backlogs.length > 0) && (
+        <div className="card p-4 flex flex-wrap gap-4 items-center">
+          {cgpa && (
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl flex items-center justify-center text-sm font-bold text-white"
+                style={{ backgroundColor: 'var(--color-primary)' }}>
+                GPA
+              </div>
+              <div>
+                <p className="text-2xs uppercase tracking-wide" style={{ color: 'var(--color-text-faint)' }}>
+                  Cumulative GPA
+                </p>
+                <p className="text-xl font-bold" style={{ color: 'var(--color-primary)' }}>{cgpa}</p>
+              </div>
+            </div>
+          )}
 
-      {backlogs.length > 0 && (
-        <div className="bg-red-50 border border-red-200 rounded-xl p-4">
-          <h3 className="font-semibold text-red-700 mb-2">⚠️ Current Backlogs ({backlogs.length})</h3>
-          <div className="flex flex-wrap gap-2">
-            {backlogs.map((b, i) => (
-              <span key={i} className="bg-red-100 text-red-700 border border-red-200 rounded-full px-3 py-1 text-sm">
-                {b.subject_code} (Sem {b.semester})
-              </span>
-            ))}
-          </div>
+          {backlogs.length > 0 && (
+            <>
+              <div className="w-px h-8 hidden sm:block" style={{ backgroundColor: 'var(--color-border)' }} />
+              <div>
+                <p className="text-2xs uppercase tracking-wide mb-1.5" style={{ color: 'var(--color-text-faint)' }}>
+                  Active Backlogs
+                </p>
+                <div className="flex flex-wrap gap-1.5">
+                  {backlogs.map((b, i) => (
+                    <span key={i} className="badge badge-danger text-2xs">
+                      {b.subject_code} · Sem {b.semester}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            </>
+          )}
         </div>
       )}
 
+      {/* GPA trend chart */}
+      {trendData.length > 0 && <PerformanceTrendChart data={trendData} />}
+
+      {/* Per-semester tables */}
       {semesters.map(sem => {
         const semMarks = marks.filter(m => m.semester === sem);
         const gpa = semGPA[sem];
+        const passed = semMarks.filter(m => !m.is_backlog).length;
+        const total  = semMarks.length;
+
         return (
-          <div key={sem} className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-            <div className="px-5 py-3 bg-indigo-50 border-b border-indigo-200 flex justify-between items-center">
-              <h3 className="font-semibold text-indigo-800">Semester {sem}</h3>
-              <span className="text-sm font-bold text-indigo-700">GPA: {gpa?.toFixed(2) ?? '—'}</span>
+          <div key={sem} className="card overflow-hidden">
+            {/* Semester header */}
+            <div className="flex items-center justify-between px-5 py-3.5"
+              style={{ backgroundColor: 'var(--color-elevated)', borderBottom: '1px solid var(--color-border)' }}>
+              <div className="flex items-center gap-3">
+                <div className="w-7 h-7 rounded-lg flex items-center justify-center text-xs font-bold text-white"
+                  style={{ backgroundColor: 'var(--color-primary)' }}>
+                  {sem}
+                </div>
+                <div>
+                  <p className="text-sm font-semibold" style={{ color: 'var(--color-text-base)' }}>
+                    Semester {sem}
+                  </p>
+                  <p className="text-2xs" style={{ color: 'var(--color-text-faint)' }}>
+                    {passed}/{total} subjects passed
+                  </p>
+                </div>
+              </div>
+              {gpa !== undefined && (
+                <div className="flex items-center gap-2">
+                  <span className="text-2xs uppercase tracking-wide" style={{ color: 'var(--color-text-faint)' }}>
+                    GPA
+                  </span>
+                  <span
+                    className="text-base font-bold px-2.5 py-0.5 rounded-lg"
+                    style={{
+                      backgroundColor: gpa >= 8 ? 'var(--color-success-muted)' :
+                                       gpa >= 6 ? 'var(--color-warning-muted)' : 'var(--color-danger-muted)',
+                      color: gpa >= 8 ? 'var(--color-success)' :
+                             gpa >= 6 ? 'var(--color-warning)' : 'var(--color-danger)',
+                    }}
+                  >
+                    {gpa.toFixed(2)}
+                  </span>
+                </div>
+              )}
             </div>
-            <table className="min-w-full text-sm">
-              <thead className="bg-gray-50 border-b">
-                <tr>{['Subject', 'Internal', 'Semester', 'Total', 'Grade', 'GPA Pts', 'Backlog'].map(h => (
-                  <th key={h} className="px-4 py-2 text-left text-xs font-semibold text-gray-500 uppercase">{h}</th>
-                ))}</tr>
-              </thead>
-              <tbody className="divide-y divide-gray-100">
-                {semMarks.map((m, i) => (
-                  <tr key={i} className={m.is_backlog ? 'bg-red-50' : 'hover:bg-gray-50'}>
-                    <td className="px-4 py-2 font-medium">{m.subject_code}</td>
-                    <td className="px-4 py-2">{m.internal_marks}</td>
-                    <td className="px-4 py-2">{m.semester_marks}</td>
-                    <td className="px-4 py-2 font-semibold">{m.total_marks}</td>
-                    <td className="px-4 py-2 font-bold text-indigo-700">{m.grade}</td>
-                    <td className="px-4 py-2">{m.gpa_points}</td>
-                    <td className="px-4 py-2">
-                      {m.is_backlog
-                        ? <span className="text-red-600 font-bold text-xs">FAIL</span>
-                        : <span className="text-green-600 text-xs">PASS</span>}
-                    </td>
+
+            {/* Marks table */}
+            <div className="overflow-x-auto">
+              <table className="min-w-full text-sm">
+                <thead>
+                  <tr style={{ borderBottom: '1px solid var(--color-border)' }}>
+                    {['Subject', 'Internal', 'Semester', 'Total', 'Grade', 'GPA Pts', 'Result'].map(h => (
+                      <th key={h} className="px-5 py-3 text-left font-semibold uppercase tracking-wider"
+                        style={{ fontSize: '0.625rem', color: 'var(--color-text-faint)', backgroundColor: 'var(--color-surface)' }}>
+                        {h}
+                      </th>
+                    ))}
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {semMarks.map((m, i) => (
+                    <tr key={i}
+                      style={{
+                        backgroundColor: m.is_backlog
+                          ? 'var(--color-danger-muted)'
+                          : i % 2 === 0 ? 'var(--color-surface)' : 'var(--color-elevated)',
+                        borderBottom: '1px solid var(--color-border)',
+                      }}>
+                      <td className="px-5 py-3.5">
+                        <div>
+                          <p className="font-semibold text-sm" style={{ color: 'var(--color-text-base)' }}>
+                            {m.subject_code}
+                          </p>
+                          {m.subject_name && (
+                            <p className="text-2xs mt-0.5" style={{ color: 'var(--color-text-faint)' }}>
+                              {m.subject_name}
+                            </p>
+                          )}
+                        </div>
+                      </td>
+                      <td className="px-5 py-3.5" style={{ color: 'var(--color-text-muted)' }}>
+                        {m.internal_marks}
+                      </td>
+                      <td className="px-5 py-3.5" style={{ color: 'var(--color-text-muted)' }}>
+                        {m.semester_marks}
+                      </td>
+                      <td className="px-5 py-3.5 font-semibold" style={{ color: 'var(--color-text-base)' }}>
+                        {m.total_marks}
+                      </td>
+                      <td className="px-5 py-3.5">
+                        <span className="text-base font-bold" style={gradeColor(m.grade)}>
+                          {m.grade}
+                        </span>
+                      </td>
+                      <td className="px-5 py-3.5 font-mono text-sm" style={{ color: 'var(--color-text-muted)' }}>
+                        {m.gpa_points}
+                      </td>
+                      <td className="px-5 py-3.5">
+                        {m.is_backlog
+                          ? <span className="badge badge-danger">FAIL</span>
+                          : <span className="badge badge-success">PASS</span>}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
         );
       })}
 
       {marks.length === 0 && (
-        <p className="text-sm text-gray-400 text-center py-8">No results published yet.</p>
+        <div className="card p-12 text-center">
+          <div className="text-3xl mb-3 opacity-40">📚</div>
+          <p className="text-sm" style={{ color: 'var(--color-text-faint)' }}>No results published yet.</p>
+        </div>
       )}
     </div>
   );
