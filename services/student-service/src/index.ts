@@ -8,7 +8,9 @@ import studentRoutes from './routes/student.routes';
 const app = express();
 const PORT = process.env.PORT || 3002;
 
-app.use(helmet()); app.use(cors()); app.use(express.json()); app.use(morgan('combined'));
+app.use(helmet()); app.use(cors()); app.use(express.json());
+morgan.token('req-id', (req: express.Request) => (req.headers['x-request-id'] as string) || '-');
+app.use(morgan(':req-id :method :url :status - :response-time ms'));
 
 app.use('/api/students', studentRoutes);
 app.get('/health', (_req, res) => res.json({ status: 'ok', service: 'student-service' }));

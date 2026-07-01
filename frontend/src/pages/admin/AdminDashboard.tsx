@@ -9,10 +9,12 @@ import AttendanceAnalytics from './AttendanceAnalytics';
 import ReportsPage         from './ReportsPage';
 import AIInsights          from './AIInsights';
 import NotificationCenter  from './NotificationCenter';
+import FacultyManagement   from './FacultyManagement';
 
 const NAV = [
   { label: 'Overview',       path: '/admin',                icon: '📊' },
   { label: 'Students',       path: '/admin/students',        icon: '👥' },
+  { label: 'Faculty',        path: '/admin/faculty',         icon: '👨‍🏫' },
   { label: 'Attendance',     path: '/admin/attendance',      icon: '📋' },
   { label: 'Fees',           path: '/admin/fees',            icon: '💰' },
   { label: 'AI Insights',    path: '/admin/ai',              icon: '🤖' },
@@ -28,6 +30,7 @@ export default function AdminDashboard() {
         <Route path="students"             element={<StudentList />} />
         <Route path="students/new"         element={<CreateStudent />} />
         <Route path="students/:id"         element={<StudentDetail />} />
+        <Route path="faculty"              element={<FacultyManagement />} />
         <Route path="attendance"           element={<AttendanceAnalytics />} />
         <Route path="fees"                 element={<FeeDefaulters />} />
         <Route path="ai"                   element={<AIInsights />} />

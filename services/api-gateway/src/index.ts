@@ -5,6 +5,7 @@ import proxy from 'express-http-proxy';
 import jwt from 'jsonwebtoken';
 import fs from 'fs';
 import { createClient } from 'redis';
+import { randomUUID } from 'crypto';
 
 const app = express();
 const PORT = process.env.GATEWAY_PORT || 80;
@@ -16,8 +17,27 @@ const redis = createClient({ url: process.env.REDIS_URL });
 redis.connect().catch(console.error);
 
 app.use(helmet({ contentSecurityPolicy: false }));
-app.use(cors());
-app.use(morgan('combined'));
+app.use(cors({
+  origin: process.env.ALLOWED_ORIGIN ?? '*',
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'x-internal-secret', 'x-request-id'],
+  exposedHeaders: ['x-request-id'],
+  credentials: true,
+}));
+
+// ─── Correlation ID middleware ────────────────────────────────────────────────
+// Generates or propagates a unique request ID for distributed tracing.
+// Every downstream service receives it as x-request-id and echoes it back.
+app.use((req: Request, res: Response, next: NextFunction) => {
+  const requestId = (req.headers['x-request-id'] as string) || randomUUID();
+  req.headers['x-request-id'] = requestId;   // forward to downstream
+  res.setHeader('x-request-id', requestId);   // echo back to client
+  next();
+});
+
+// ─── Morgan with request ID ───────────────────────────────────────────────────
+morgan.token('req-id', (req: Request) => req.headers['x-request-id'] as string || '-');
+app.use(morgan(':req-id :method :url :status :res[content-length] - :response-time ms'));
 
 // ─── RBAC permission map ───────────────────────────────────────────────────────
 const PERMISSIONS: Record<string, string[]> = {
@@ -101,11 +121,18 @@ app.use(authenticate);
 app.use(rateLimiter);
 
 // ─── Proxy routes ──────────────────────────────────────────────────────────────
-// Preserve the full request path (including /api/xxx prefix) when forwarding,
-// because downstream services register routes with the full path.
+// Preserve full request path AND forward correlation ID to all downstream services.
 const proxyWithFullPath = (target: string) =>
   proxy(target, {
     proxyReqPathResolver: (req) => req.originalUrl,
+    proxyReqOptDecorator: (proxyReqOpts, srcReq) => {
+      // Ensure x-request-id is forwarded (already set by correlation middleware above)
+      if (srcReq.headers['x-request-id']) {
+        (proxyReqOpts.headers as Record<string, string>)['x-request-id'] =
+          srcReq.headers['x-request-id'] as string;
+      }
+      return proxyReqOpts;
+    },
     proxyErrorHandler: (_err: Error, _res: Response, next: NextFunction) => {
       next(Object.assign(new Error('Upstream service error'), { statusCode: 502 }));
     },

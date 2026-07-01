@@ -114,6 +114,19 @@ export default function DashboardLayout({ children, navItems, title }: Props) {
         {/* Logout */}
         <div className="px-2 py-3" style={{ borderTop: '1px solid rgba(255,255,255,0.06)' }}>
           <button
+            onClick={() => navigate('/change-password')}
+            title={collapsed ? 'Change Password' : undefined}
+            className="flex items-center gap-3 px-3 py-2.5 w-full rounded-lg text-sm font-medium
+              text-slate-400 hover:text-white hover:bg-white/5 transition-colors duration-150 mb-1"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round"
+                d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0
+                   01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
+            </svg>
+            {!collapsed && <span>Change Password</span>}
+          </button>
+          <button
             onClick={handleLogout}
             title={collapsed ? 'Logout' : undefined}
             className="flex items-center gap-3 px-3 py-2.5 w-full rounded-lg text-sm font-medium

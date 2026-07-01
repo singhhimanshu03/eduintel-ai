@@ -34,13 +34,59 @@ app.post('/api/exams/schedules', async (req: Request, res: Response, next: NextF
 });
 
 // GET /schedules
+// examination_cell and admin see ALL schedules (draft + published)
+// students and parents see only published schedules
 app.get('/api/exams/schedules', async (req: Request, res: Response, next: NextFunction) => {
   try {
     const institutionId = req.headers['x-institution-id'] as string;
-    const { rows } = await db.query(
-      `SELECT * FROM exam_schedules WHERE institution_id=$1 AND is_published=true ORDER BY exam_date`, [institutionId]
-    );
+    const role           = req.headers['x-user-role'] as string;
+    const showAll        = ['examination_cell', 'college_admin', 'super_admin'].includes(role);
+
+    const query = showAll
+      ? `SELECT * FROM exam_schedules WHERE institution_id=$1 ORDER BY exam_date`
+      : `SELECT * FROM exam_schedules WHERE institution_id=$1 AND is_published=true ORDER BY exam_date`;
+
+    const { rows } = await db.query(query, [institutionId]);
     res.json({ success: true, data: rows });
+  } catch (err) { next(err); }
+});
+
+// PUT /schedules/:id/publish  — draft → published transition
+app.put('/api/exams/schedules/:id/publish', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { id } = req.params;
+    const institutionId = req.headers['x-institution-id'] as string;
+
+    // Fetch schedule — ensure it belongs to this institution
+    const { rows: existing } = await db.query(
+      `SELECT * FROM exam_schedules WHERE id=$1 AND institution_id=$2`,
+      [id, institutionId]
+    );
+    if (!existing.length) {
+      res.status(404).json({ success: false, message: 'Schedule not found' });
+      return;
+    }
+    if (existing[0].is_published) {
+      res.status(409).json({ success: false, message: 'Schedule is already published' });
+      return;
+    }
+
+    const { rows } = await db.query(
+      `UPDATE exam_schedules SET is_published=true WHERE id=$1 RETURNING *`,
+      [id]
+    );
+
+    // Notify institution — fire-and-forget
+    axios.post(`${process.env.NOTIFICATION_SERVICE_URL}/api/notifications/send`, {
+      broadcast: true,
+      institutionId,
+      eventType: 'custom',
+      channel: 'in_app',
+      subject: 'Exam Schedule Published',
+      message: `Exam schedule for ${existing[0].subject_code} on ${existing[0].exam_date?.toISOString?.()?.split('T')[0] ?? existing[0].exam_date} has been published.`,
+    }, { headers: { 'x-internal-secret': process.env.INTERNAL_SERVICE_SECRET } }).catch(() => {});
+
+    res.json({ success: true, data: rows[0], message: 'Schedule published successfully' });
   } catch (err) { next(err); }
 });
 
@@ -135,8 +181,12 @@ app.post('/api/exams/hall-tickets/generate', async (req: Request, res: Response,
       `${process.env.ATTENDANCE_SERVICE_URL}/api/attendance/students/${studentId}`,
       { headers: { 'x-internal-secret': process.env.INTERNAL_SERVICE_SECRET } }
     );
-    const attData: Array<{ attendance_percentage: string }> = attRes.data.data;
-    const minAtt = Math.min(...attData.map(a => parseFloat(a.attendance_percentage)));
+    const attData: Array<{ attendance_percentage: string }> = attRes.data.data ?? [];
+
+    // Guard: if no attendance records exist yet, treat as 0% (blocked)
+    const minAtt = attData.length > 0
+      ? Math.min(...attData.map(a => parseFloat(a.attendance_percentage)))
+      : 0;
 
     // Check fee
     const feeRes = await axios.get(
@@ -180,16 +230,93 @@ app.get('/api/exams/hall-tickets/:studentId/pdf', async (req: Request, res: Resp
     );
     if (!rows.length) { res.status(404).json({ success: false, message: 'No eligible hall ticket found' }); return; }
 
+    // Extract variables needed for PDF generation
+    const studentId   = req.params.studentId;
+    const examCycle   = rows[0].exam_cycle as string;
+    const institutionId = req.headers['x-institution-id'] as string;
+
+    // Fetch student profile for enriched PDF
+    let studentName = studentId;
+    // examCycle is already available from rows[0].exam_cycle above
+    try {
+      const stuRes = await axios.get(
+        `${process.env.ATTENDANCE_SERVICE_URL?.replace('attendance-service:3004', 'student-service:3002')}/api/students/${studentId}`,
+        { headers: { 'x-internal-secret': process.env.INTERNAL_SERVICE_SECRET } }
+      );
+      studentName = stuRes.data.data?.full_name ?? studentId;
+    } catch { /* fallback to ID */ }
+
+    // Fetch upcoming exam schedules
+    let schedules: Array<{ subject_code: string; exam_date: string; venue: string }> = [];
+    try {
+      const schedRes = await axios.get(
+        `${process.env.ATTENDANCE_SERVICE_URL?.replace('attendance-service:3004', 'examination-service:3005')}/api/exams/schedules`,
+        { headers: { 'x-internal-secret': process.env.INTERNAL_SERVICE_SECRET, 'x-institution-id': institutionId } }
+      );
+      schedules = schedRes.data.data ?? [];
+    } catch { /* skip schedules */ }
+
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `attachment; filename="hall_ticket_${req.params.studentId}.pdf"`);
-    const doc = new PDFDocument({ margin: 40 });
+    const doc = new PDFDocument({ margin: 50 });
     doc.pipe(res);
-    doc.fontSize(20).text('EduIntel AI — Hall Ticket', { align: 'center' });
-    doc.moveDown();
-    doc.fontSize(12).text(`Student ID: ${req.params.studentId}`);
-    doc.text(`Exam Cycle: ${rows[0].exam_cycle}`);
-    doc.text(`Generated: ${new Date(rows[0].generated_at).toLocaleString()}`);
-    doc.moveDown().text('Status: ELIGIBLE TO APPEAR', { underline: true });
+
+    // Header
+    doc.fontSize(22).font('Helvetica-Bold').text('EduIntel AI', { align: 'center' });
+    doc.fontSize(14).font('Helvetica').text('Examination Hall Ticket', { align: 'center' });
+    doc.moveDown(0.5);
+    doc.moveTo(50, doc.y).lineTo(545, doc.y).stroke();
+    doc.moveDown(0.5);
+
+    // Student details
+    doc.fontSize(11).font('Helvetica-Bold').text('Student Details', { underline: true });
+    doc.moveDown(0.3);
+    doc.font('Helvetica').fontSize(11);
+    doc.text(`Student ID   : ${req.params.studentId}`);
+    doc.text(`Student Name : ${studentName}`);
+    doc.text(`Exam Cycle   : ${rows[0].exam_cycle}`);
+    doc.text(`Generated    : ${new Date(rows[0].generated_at).toLocaleString()}`);
+    doc.moveDown(0.5);
+    doc.font('Helvetica-Bold').text('Eligibility Status: ').font('Helvetica').text(
+      '✓ ELIGIBLE TO APPEAR', { continued: false }
+    );
+    doc.moveDown(0.8);
+
+    // Exam schedule table
+    if (schedules.length > 0) {
+      doc.font('Helvetica-Bold').fontSize(11).text('Examination Schedule', { underline: true });
+      doc.moveDown(0.3);
+      // Table header
+      const col = [50, 150, 280, 400];
+      doc.font('Helvetica-Bold').fontSize(10);
+      doc.text('#',            col[0], doc.y, { width: 90 });
+      doc.text('Subject Code', col[1], doc.y - 10, { width: 130 });
+      doc.text('Date',         col[2], doc.y - 10, { width: 120 });
+      doc.text('Venue',        col[3], doc.y - 10, { width: 130 });
+      doc.moveDown(0.5);
+      doc.moveTo(50, doc.y).lineTo(545, doc.y).stroke();
+      doc.moveDown(0.3);
+
+      doc.font('Helvetica').fontSize(10);
+      schedules.forEach((s, i) => {
+        const y = doc.y;
+        doc.text(String(i + 1),                              col[0], y, { width: 90 });
+        doc.text(s.subject_code,                             col[1], y, { width: 130 });
+        doc.text(s.exam_date?.split('T')[0] ?? '—',          col[2], y, { width: 120 });
+        doc.text(s.venue ?? '—',                             col[3], y, { width: 130 });
+        doc.moveDown(0.5);
+      });
+    } else {
+      doc.font('Helvetica').fontSize(10).text('Exam schedule will be announced separately.');
+    }
+
+    doc.moveDown(1);
+    doc.moveTo(50, doc.y).lineTo(545, doc.y).stroke();
+    doc.moveDown(0.5);
+    doc.fontSize(9).fillColor('grey').text(
+      'This is a computer-generated document. No signature required.',
+      { align: 'center' }
+    );
     doc.end();
   } catch (err) { next(err); }
 });

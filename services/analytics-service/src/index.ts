@@ -10,7 +10,9 @@ const TTL = parseInt(process.env.DASHBOARD_CACHE_TTL || '300');
 const redis = createClient({ url: process.env.REDIS_URL });
 redis.connect().catch(console.error);
 
-app.use(helmet()); app.use(cors()); app.use(express.json()); app.use(morgan('combined'));
+app.use(helmet()); app.use(cors()); app.use(express.json());
+morgan.token('req-id', (req: Request) => (req.headers['x-request-id'] as string) || '-');
+app.use(morgan(':req-id :method :url :status - :response-time ms'));
 
 const svc = {
   student:    process.env.STUDENT_SERVICE_URL,
@@ -134,15 +136,49 @@ app.get('/api/analytics/dashboard/parent/:studentId', async (req: Request, res: 
   try {
     const studentId = req.params.studentId;
     const data = await cacheOrFetch(`dash:parent:${studentId}`, async () => {
-      const [att, results, risk] = await Promise.allSettled([
+      // Fetch attendance and exam results first so we can build a proper AI payload
+      const [att, results, fee] = await Promise.allSettled([
         axios.get(`${svc.attendance}/api/attendance/students/${studentId}`, { headers: internalHeaders }),
         axios.get(`${svc.exam}/api/exams/results/${studentId}`, { headers: internalHeaders }),
-        axios.post(`${svc.ai}/api/ai/eligibility-risk`, { studentId }, { headers: internalHeaders }),
+        axios.get(`${svc.fee}/api/fees/students/${studentId}/status`, { headers: internalHeaders }),
       ]);
+
+      const attData: Array<{ attendance_percentage: string }> =
+        att.status === 'fulfilled' ? (att.value.data?.data ?? []) : [];
+      const resultsData = att.status === 'fulfilled' ? (results.status === 'fulfilled' ? (results.value.data?.data ?? {}) : {}) : {};
+      const feeStatus: string = fee.status === 'fulfilled' ? (fee.value.data?.data?.fee_status ?? 'unpaid') : 'unpaid';
+
+      const avgAtt = attData.length
+        ? attData.reduce((sum, a) => sum + parseFloat(a.attendance_percentage), 0) / attData.length
+        : 75;
+
+      const marks: Array<{ internal_marks: number }> = (resultsData as { marks?: Array<{ internal_marks: number }> }).marks ?? [];
+      const avgMarks = marks.length
+        ? marks.reduce((sum, m) => sum + (m.internal_marks ?? 0), 0) / marks.length
+        : 60;
+
+      const semGPA: Record<string, number> = (resultsData as { semesterGPA?: Record<string, number> }).semesterGPA ?? {};
+      const sortedSems = Object.keys(semGPA).sort();
+      const prevGPA = sortedSems.length ? semGPA[sortedSems[sortedSems.length - 1]] : 7;
+
+      // Build complete eligibility payload — all required fields present
+      const eligibilityPayload = {
+        student_id:            studentId,
+        attendance_percentage: Math.round(avgAtt * 10) / 10,
+        fee_status:            feeStatus,
+        avg_internal_marks:    Math.round(avgMarks * 10) / 10,
+        prev_semester_gpa:     prevGPA,
+      };
+
+      const risk = await axios
+        .post(`${svc.ai}/api/ai/eligibility-risk`, eligibilityPayload, { headers: internalHeaders })
+        .then(r => r.data)
+        .catch(() => null);
+
       return {
         attendance: att.status === 'fulfilled' ? att.value.data : null,
-        results: results.status === 'fulfilled' ? results.value.data : null,
-        riskScore: risk.status === 'fulfilled' ? risk.value.data : null,
+        results:    results.status === 'fulfilled' ? results.value.data : null,
+        riskScore:  risk,
       };
     });
     res.json({ success: true, data });
@@ -170,6 +206,54 @@ app.get('/api/analytics/reports/:type/export', async (req: Request, res: Respons
       const res2 = await axios.get(`${svc.fee}/api/fees/defaulters`, { headers: internalHeaders });
       rows = (res2.data.data as Record<string, unknown>[]) || [];
       columns = ['student_id', 'total_fee', 'paid_amount', 'balance', 'fee_status'];
+    } else if (type === 'academic') {
+      const institutionId = req.headers['x-institution-id'] as string;
+      const res2 = await axios.get(
+        `${svc.student}/api/students?limit=200`,
+        { headers: { ...internalHeaders, 'x-institution-id': institutionId } }
+      );
+      const students: Record<string, unknown>[] = res2.data.data || [];
+      // For each student fetch academic history (limit to keep report fast)
+      const histories = await Promise.allSettled(
+        students.slice(0, 50).map(s =>
+          axios.get(`${svc.student}/api/students/${s.id}/academic-history`, { headers: internalHeaders })
+            .then(r => (r.data.data as Record<string, unknown>[]).map(h => ({ ...h, student_code: s.student_code, full_name: s.full_name })))
+        )
+      );
+      rows = histories.flatMap(h => h.status === 'fulfilled' ? h.value : []);
+      columns = ['student_code', 'full_name', 'semester', 'subject_code', 'subject_name', 'internal_marks', 'semester_marks', 'total_marks', 'grade', 'gpa', 'is_backlog'];
+    } else if (type === 'eligibility') {
+      const res2 = await axios.get(`${svc.attendance}/api/attendance/analytics`, { headers: internalHeaders });
+      const below: Record<string, unknown>[] = res2.data.data?.studentsBelowThreshold || [];
+      const feeRes = await axios.get(`${svc.fee}/api/fees/defaulters`, { headers: internalHeaders }).catch(() => ({ data: { data: [] } }));
+      const defaulters: string[] = ((feeRes.data.data as Record<string, unknown>[]) || []).map(f => String(f.student_id));
+      rows = below.map(s => ({
+        ...s,
+        fee_defaulter: defaulters.includes(String(s.student_id)) ? 'Yes' : 'No',
+        eligible: (parseFloat(String(s.attendance_percentage)) >= 75 && !defaulters.includes(String(s.student_id))) ? 'YES' : 'NO',
+      }));
+      columns = ['student_id', 'subject_code', 'attendance_percentage', 'fee_defaulter', 'eligible'];
+    } else if (type === 'ai-predictions') {
+      const institutionId = req.headers['x-institution-id'] as string;
+      const stuRes = await axios.get(
+        `${svc.student}/api/students?limit=100`,
+        { headers: { ...internalHeaders, 'x-institution-id': institutionId } }
+      );
+      const students: Record<string, unknown>[] = stuRes.data.data || [];
+      const predictions = await Promise.allSettled(
+        students.slice(0, 30).map(async s => {
+          const attRes = await axios.get(`${svc.attendance}/api/attendance/students/${s.id}`, { headers: internalHeaders }).catch(() => ({ data: { data: [] } }));
+          const attData: Array<{ attendance_percentage: string }> = attRes.data.data || [];
+          const avgAtt = attData.length ? attData.reduce((sum, a) => sum + parseFloat(a.attendance_percentage), 0) / attData.length : 75;
+          const pred = await axios.post(`${svc.ai}/api/ai/eligibility-risk`, {
+            student_id: s.id, attendance_percentage: Math.round(avgAtt * 10) / 10,
+            fee_status: 'paid', avg_internal_marks: 60, prev_semester_gpa: 7,
+          }, { headers: internalHeaders }).catch(() => ({ data: { data: { risk_score: 'Unknown' } } }));
+          return { student_id: s.id, student_code: s.student_code, full_name: s.full_name, avg_attendance: avgAtt.toFixed(1), risk_score: pred.data.data?.risk_score ?? 'Unknown' };
+        })
+      );
+      rows = predictions.flatMap(p => p.status === 'fulfilled' ? [p.value] : []);
+      columns = ['student_code', 'full_name', 'avg_attendance', 'risk_score'];
     }
 
     const workbook = new ExcelJS.Workbook();

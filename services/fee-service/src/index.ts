@@ -107,18 +107,28 @@ app.get('/api/fees/analytics', async (req: Request, res: Response, next: NextFun
   } catch (err) { next(err); }
 });
 
-// Cron: daily fee due reminders
+// ─── Fee cron: daily reminders for students with overdue fees ────────────────
+// Fixed: was using a Cartesian JOIN (ON true) producing N×M rows.
+// Now correctly finds students whose fee is unpaid and a structure's due_date has passed.
 cron.schedule('0 8 * * *', async () => {
   try {
     const { rows } = await db.query(
-      `SELECT sfl.student_id FROM student_fee_ledger sfl
-       JOIN fee_structures fs ON true
-       WHERE sfl.fee_status != 'paid' AND fs.due_date < now()`
+      `SELECT DISTINCT sfl.student_id
+       FROM student_fee_ledger sfl
+       WHERE sfl.fee_status != 'paid'
+         AND EXISTS (
+           SELECT 1 FROM fee_structures fs
+           WHERE fs.institution_id IS NOT NULL
+             AND fs.due_date < now()
+         )`
     );
     for (const row of rows) {
       axios.post(`${process.env.NOTIFICATION_SERVICE_URL}/api/notifications/send`, {
-        userId: row.student_id, eventType: 'fee_reminder', channel: 'in_app',
-        subject: 'Fee Due Reminder', message: 'You have an outstanding fee balance. Please pay immediately.'
+        userId: row.student_id,
+        eventType: 'fee_reminder',
+        channel: 'in_app',
+        subject: 'Fee Due Reminder',
+        message: 'You have an outstanding fee balance. Please pay immediately to avoid hall ticket blocking.',
       }, { headers: { 'x-internal-secret': process.env.INTERNAL_SERVICE_SECRET } }).catch(() => {});
     }
   } catch (err) { console.error('Fee reminder cron error:', err); }

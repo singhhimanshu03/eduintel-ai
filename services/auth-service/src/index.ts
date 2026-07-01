@@ -16,7 +16,8 @@ const PORT = process.env.PORT || 3001;
 app.use(helmet());
 app.use(cors());
 app.use(express.json({ limit: '1mb' }));
-app.use(morgan('combined'));
+morgan.token('req-id', (req) => (req as { headers: Record<string, string> }).headers['x-request-id'] || '-');
+app.use(morgan(':req-id :method :url :status - :response-time ms'));
 
 // ─── Swagger ───────────────────────────────────────────────────────────────────
 const swaggerSpec = swaggerJsdoc({

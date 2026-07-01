@@ -43,6 +43,7 @@ services:
       - REDIS_URL=redis://redis:6379
       - RATE_LIMIT_WINDOW_MS=${RATE_LIMIT_WINDOW_MS:-60000}
       - RATE_LIMIT_MAX=${RATE_LIMIT_MAX:-200}
+      - ALLOWED_ORIGIN=${ALLOWED_ORIGIN:-}
       - AUTH_SERVICE_URL=http://auth-service:3001
       - STUDENT_SERVICE_URL=http://student-service:3002
       - FACULTY_SERVICE_URL=http://faculty-service:3003
@@ -219,6 +220,9 @@ services:
     restart: unless-stopped
     ports:
       - "8000:8000"
+    volumes:
+      # Persist trained ML model files across container restarts
+      - ai_models:/app/models
     environment:
       - AI_SERVICE_PORT=8000
       - MODEL_DIR=/app/models
@@ -256,3 +260,4 @@ services:
 
 volumes:
   pgdata:
+  ai_models:    # Named volume — persists trained .pkl model files across restarts

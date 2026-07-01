@@ -89,8 +89,15 @@ export default function Login() {
 
       const res = await api.post('/auth/login', data);
       const { accessToken, refreshToken, role } = res.data.data;
+      // Decode JWT payload — contains userId AND institutionId
       const payload = JSON.parse(atob(accessToken.split('.')[1]));
-      dispatch(setCredentials({ accessToken, refreshToken, role, userId: payload.userId }));
+      dispatch(setCredentials({
+        accessToken,
+        refreshToken,
+        role,
+        userId: payload.userId,
+        institutionId: payload.institutionId ?? null,
+      }));
       navigate(ROLE_HOME[role] || '/login', { replace: true });
     } catch (err: unknown) {
       const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message;

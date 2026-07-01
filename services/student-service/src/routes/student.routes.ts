@@ -30,13 +30,21 @@ router.get('/', async (req: Request, res: Response, next: NextFunction) => {
     const { dept, course, semester, page = '1', limit = '50' } = req.query as Record<string, string>;
     const offset = (parseInt(page) - 1) * parseInt(limit);
 
+    // super_admin has no institution_id — return all active students across the platform
+    const isSuperAdmin = role === 'super_admin';
+
     let query = `SELECT id, student_code, full_name, email, department_id, course_id,
                         current_semester, enrollment_status, profile_photo_url
-                 FROM students WHERE institution_id=$1`;
-    const params: unknown[] = [institutionId];
+                 FROM students WHERE 1=1`;
+    const params: unknown[] = [];
 
-    if (dept) { params.push(dept); query += ` AND department_id=$${params.length}`; }
-    if (course) { params.push(course); query += ` AND course_id=$${params.length}`; }
+    if (!isSuperAdmin) {
+      params.push(institutionId);
+      query += ` AND institution_id=$${params.length}`;
+    }
+
+    if (dept)     { params.push(dept);              query += ` AND department_id=$${params.length}`; }
+    if (course)   { params.push(course);             query += ` AND course_id=$${params.length}`; }
     if (semester) { params.push(parseInt(semester)); query += ` AND current_semester=$${params.length}`; }
 
     query += ` AND enrollment_status != 'inactive' ORDER BY full_name LIMIT $${params.length + 1} OFFSET $${params.length + 2}`;

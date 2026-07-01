@@ -1,0 +1,24 @@
+{
+  "name": "eduintel-ai-e2e",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Playwright E2E test suite for EduIntel AI",
+  "scripts": {
+    "test:e2e": "playwright test",
+    "test:e2e:headed": "playwright test --headed",
+    "test:e2e:ui": "playwright test --ui",
+    "test:e2e:report": "playwright show-report",
+    "test:e2e:chromium": "playwright test --project=chromium",
+    "test:e2e:firefox": "playwright test --project=firefox",
+    "test:e2e:webkit": "playwright test --project=webkit",
+    "test:e2e:api": "playwright test --project=api",
+    "test:e2e:debug": "playwright test --debug",
+    "codegen": "playwright codegen http://localhost:3000",
+    "typecheck": "tsc --noEmit --project tsconfig.playwright.json"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.44.1",
+    "@types/node": "^20.19.43",
+    "typescript": "^5.4.5"
+  }
+}

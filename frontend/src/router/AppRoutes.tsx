@@ -14,6 +14,7 @@ import NotFound       from '../pages/NotFound';
 // Standalone pages accessible from any role
 import NotificationCenter from '../pages/admin/NotificationCenter';
 import MyNotifications    from '../pages/notifications/MyNotifications';
+import ChangePassword     from '../pages/ChangePassword';
 
 // Dashboards
 import AdminDashboard     from '../pages/admin/AdminDashboard';
@@ -86,6 +87,11 @@ export default function AppRoutes() {
         <RoleBasedRoute allowedRoles={['placement_cell']}>
           <PlacementDashboard />
         </RoleBasedRoute>
+      } />
+
+      {/* Change Password — any authenticated user */}
+      <Route path="/change-password" element={
+        <ProtectedRoute><ChangePassword /></ProtectedRoute>
       } />
 
       {/* Notifications — role-aware:

@@ -26,7 +26,7 @@ const inputCls =
 
 export default function CreateStudent() {
   const navigate = useNavigate();
-  const institutionId = useSelector((s: RootState) => (s.auth as unknown as { institutionId?: string }).institutionId);
+  const institutionId = useSelector((s: RootState) => s.auth.institutionId);
   const createStudent = useCreateStudent();
   const [csvFile, setCsvFile] = useState<File | null>(null);
   const [bulkLoading, setBulkLoading] = useState(false);

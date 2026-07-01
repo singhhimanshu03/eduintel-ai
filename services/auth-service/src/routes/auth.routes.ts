@@ -252,7 +252,34 @@ router.post('/reset-password', async (req, res, next) => {
   }
 });
 
-// ─── GET /audit-logs (Super_Admin only — enforced at gateway) ──────────────────
+// ─── POST /change-password (authenticated) ────────────────────────────────────
+router.post('/change-password', async (req, res, next) => {
+  try {
+    const userId = req.headers['x-user-id'] as string;
+    if (!userId) { res.status(401).json({ success: false, message: 'Not authenticated' }); return; }
+
+    const { currentPassword, newPassword } = req.body as { currentPassword: string; newPassword: string };
+    if (!currentPassword || !newPassword || newPassword.length < 8) {
+      res.status(400).json({ success: false, message: 'Invalid request — new password must be at least 8 characters' });
+      return;
+    }
+
+    const { rows } = await db.query(`SELECT * FROM users WHERE id=$1`, [userId]);
+    if (!rows.length) { res.status(404).json({ success: false, message: 'User not found' }); return; }
+
+    const valid = await bcrypt.compare(currentPassword, rows[0].password_hash);
+    if (!valid) { res.status(401).json({ success: false, message: 'Current password is incorrect' }); return; }
+
+    const newHash = await bcrypt.hash(newPassword, BCRYPT_COST);
+    await db.query(`UPDATE users SET password_hash=$1, updated_at=now() WHERE id=$2`, [newHash, userId]);
+
+    // Revoke all existing refresh tokens to force re-login on other devices
+    await db.query(`UPDATE refresh_tokens SET revoked=true WHERE user_id=$1`, [userId]);
+
+    await writeAuditLog({ userId, action: 'PASSWORD_CHANGE', outcome: 'SUCCESS' });
+    res.json({ success: true, message: 'Password changed successfully' });
+  } catch (err) { next(err); }
+});
 router.get('/audit-logs', async (req, res, next) => {
   try {
     const { page = '1', limit = '50' } = req.query as Record<string, string>;

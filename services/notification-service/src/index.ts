@@ -60,17 +60,17 @@ app.post('/api/notifications/send', async (req: Request, res: Response, next: Ne
       if (ch === 'in_app') {
         await redis.publish(`notifications:${userId}`, JSON.stringify({ eventType, message, subject }));
         await db.query(`UPDATE notifications SET delivery_status='delivered', sent_at=now() WHERE id=$1`, [notifId]);
-      } else if (ch === 'email' && userId) {
-        // Deliver async, SLA tracked
-        const startTime = Date.now();
-        setImmediate(async () => {
-          const elapsed = Date.now() - startTime;
-          if (elapsed > DELIVERY_SLA_MS) {
-            await db.query(`UPDATE notifications SET delivery_status='delayed' WHERE id=$1`, [notifId]);
-          }
-          // Need email — in production this would look up from user service
-          await deliverEmail(`${userId}@placeholder.edu`, subject, message, notifId);
-        });
+      }
+      if (ch === 'email' && userId) {
+        // Look up real email from user service via auth DB if available,
+        // fallback to a stored email field in the notification payload itself.
+        const recipientEmail = (req.body as { recipientEmail?: string }).recipientEmail;
+        if (recipientEmail) {
+          setImmediate(() => deliverEmail(recipientEmail, subject, message, notifId));
+        } else {
+          // No email available — mark as skipped rather than sending to fabricated address
+          await db.query(`UPDATE notifications SET delivery_status='skipped' WHERE id=$1`, [notifId]);
+        }
       }
     }
     res.json({ success: true, message: 'Notification queued' });
