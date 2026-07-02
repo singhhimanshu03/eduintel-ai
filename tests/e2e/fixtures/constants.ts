@@ -12,7 +12,7 @@ export const BASE_URL  = process.env.PLAYWRIGHT_BASE_URL  ?? 'http://localhost:3
 export const API_URL   = process.env.PLAYWRIGHT_API_URL   ?? 'http://localhost:80';
 
 // ── Default test password (used when registering/seeding test accounts) ───────
-export const TEST_PASSWORD = process.env.TEST_PASSWORD ?? 'EduIntel@2024';
+export const TEST_PASSWORD = process.env.TEST_PASSWORD ?? 'Admin@1234';
 
 // ── Institution ───────────────────────────────────────────────────────────────
 export const INSTITUTION_ID = '10000000-0000-0000-0000-000000000001';

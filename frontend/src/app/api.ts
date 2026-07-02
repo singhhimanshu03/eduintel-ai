@@ -36,6 +36,14 @@ api.interceptors.response.use(
   async (error: AxiosError) => {
     const original = error.config as InternalAxiosRequestConfig & { _retry?: boolean };
 
+    // Auth endpoints: bypass refresh logic for ALL error statuses.
+    // A 401 on /auth/login means bad credentials; a 403 means account locked.
+    // Return the raw AxiosError so callers receive error.response.data.message intact.
+    const url = original?.url ?? '';
+    if (url.startsWith('/auth/') || url.includes('/auth/')) {
+      return Promise.reject(error);
+    }
+
     // Only attempt refresh on 401, and only once per request
     if (error.response?.status === 401 && original && !original._retry) {
       original._retry = true;
@@ -81,13 +89,18 @@ api.interceptors.response.use(
       }
     }
 
-    // Standardize error shape
+    // Standardize error shape — attach response so callers reading .response.data.message work
     const msg =
       (error.response?.data as { message?: string })?.message ??
       error.message ??
       'An unexpected error occurred';
 
-    return Promise.reject(Object.assign(new Error(msg), { status: error.response?.status }));
+    const standardized: Error & { status?: number; response?: typeof error.response } =
+      Object.assign(new Error(msg), {
+        status:   error.response?.status,
+        response: error.response,
+      });
+    return Promise.reject(standardized);
   }
 );
 

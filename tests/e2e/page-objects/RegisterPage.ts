@@ -35,10 +35,12 @@ export class RegisterPage {
   constructor(page: Page) {
     this.page = page;
 
-    this.emailInput       = page.getByLabel('Email');
-    this.passwordInput    = page.getByLabel('Password');
-    this.roleSelect       = page.getByLabel('Role');
-    this.institutionInput = page.getByLabel(/institution id/i);
+    // Register.tsx uses plain <input> without for/id linking — match by placeholder
+    this.emailInput       = page.getByPlaceholder('you@institution.edu');
+    this.passwordInput    = page.getByPlaceholder('Min 8 characters');
+    // Role select has no id — use nth combobox (first one on the page)
+    this.roleSelect       = page.locator('select').first();
+    this.institutionInput = page.getByPlaceholder('UUID of your institution');
     this.submitButton     = page.getByRole('button', { name: /create account/i });
     this.errorBanner      = page.locator('[style*="color-danger"]').filter({ hasText: /./ });
     this.themeToggle      = page.getByRole('button', { name: /toggle theme/i });

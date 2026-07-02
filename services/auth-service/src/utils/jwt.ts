@@ -1,5 +1,6 @@
 import jwt, { SignOptions, Secret } from 'jsonwebtoken';
 import fs from 'fs';
+import { v4 as uuidv4 } from 'uuid';
 
 const privateKey: Secret = fs.readFileSync(process.env.JWT_PRIVATE_KEY_PATH || './keys/private.pem');
 const publicKey:  Secret = fs.readFileSync(process.env.JWT_PUBLIC_KEY_PATH  || './keys/public.pem');
@@ -16,6 +17,7 @@ export function signAccessToken(payload: TokenPayload): string {
     algorithm: 'RS256',
     expiresIn: (process.env.JWT_ACCESS_EXPIRY || '15m') as SignOptions['expiresIn'],
     issuer: 'eduintel-ai',
+    jwtid: uuidv4(),   // unique per issuance so rapid re-signing produces distinct tokens
   };
   return jwt.sign(payload as object, privateKey, opts);
 }

@@ -19,6 +19,7 @@
   "devDependencies": {
     "@playwright/test": "^1.44.1",
     "@types/node": "^20.19.43",
+    "adm-zip": "^0.5.18",
     "typescript": "^5.4.5"
   }
 }

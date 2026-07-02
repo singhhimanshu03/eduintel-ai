@@ -25,10 +25,12 @@ export class LoginPage {
   constructor(page: Page) {
     this.page = page;
 
-    this.emailInput      = page.getByLabel('Email');
-    this.passwordInput   = page.getByLabel('Password');
+    // Login.tsx uses plain <input> without for/id linking — match by placeholder
+    this.emailInput      = page.getByPlaceholder('you@institution.edu');
+    this.passwordInput   = page.getByPlaceholder('••••••••');
     this.submitButton    = page.getByRole('button', { name: /sign in/i });
-    this.errorBanner     = page.locator('[style*="color-danger"]').filter({ hasText: /./  });
+    // Error banner: the error div has class card-elevated and appears only on API error
+    this.errorBanner     = page.locator('.card-elevated[style]').filter({ hasText: /./  });
     this.themeToggle     = page.getByRole('button', { name: /toggle theme/i });
     this.showPasswordBtn = page.getByRole('button', { name: /show password|hide password/i });
     this.rememberMeCheck = page.getByRole('checkbox');

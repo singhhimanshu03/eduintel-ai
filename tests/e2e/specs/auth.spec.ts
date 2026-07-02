@@ -97,8 +97,13 @@ test.describe('Login page — UI', () => {
     await loginPage.submit();
     await loginPage.expectRedirectedTo('/admin');
 
-    // Navigate back to login in same browser context
+    // Clear auth state from localStorage (mirrors what logout() does) so the
+    // route guard renders <Login /> instead of redirecting authenticated users.
+    await page.evaluate(() => localStorage.removeItem('auth'));
+
+    // Navigate back to login — unauthenticated now, so <Login /> mounts
     await page.goto('/login');
+    await page.waitForLoadState('networkidle');
     await expect(loginPage.emailInput).toHaveValue(USERS.admin.email);
   });
 

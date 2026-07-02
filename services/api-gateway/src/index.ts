@@ -55,9 +55,14 @@ const PERMISSIONS: Record<string, string[]> = {
 
 // ─── JWT + RBAC middleware ─────────────────────────────────────────────────────
 function authenticate(req: Request, res: Response, next: NextFunction) {
-  // Skip auth for auth routes (login/register)
-  if (req.path.startsWith('/api/auth/login') || req.path.startsWith('/api/auth/register') ||
-      req.path.startsWith('/api/auth/forgot-password') || req.path.startsWith('/api/auth/verify-email') ||
+  // Skip auth for auth routes (login/register/refresh/logout/forgot-password/verify-email)
+  if (req.path.startsWith('/api/auth/login')          ||
+      req.path.startsWith('/api/auth/register')        ||
+      req.path.startsWith('/api/auth/refresh')         ||
+      req.path.startsWith('/api/auth/logout')          ||
+      req.path.startsWith('/api/auth/forgot-password') ||
+      req.path.startsWith('/api/auth/verify-email')    ||
+      req.path.startsWith('/api/auth/reset-password')  ||
       req.path === '/health') {
     return next();
   }

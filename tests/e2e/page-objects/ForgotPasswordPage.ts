@@ -16,9 +16,9 @@ export class ForgotPasswordPage {
 
   constructor(page: Page) {
     this.page = page;
-    this.emailInput   = page.getByLabel('Email');
+    this.emailInput   = page.getByPlaceholder('you@institution.edu');
     this.submitButton = page.getByRole('button', { name: /send reset link/i });
-    this.successMsg   = page.getByText(/reset link has been sent/i);
+    this.successMsg   = page.getByText(/reset link sent/i);
     this.backToLogin  = page.getByRole('link', { name: /back to login/i });
   }
 

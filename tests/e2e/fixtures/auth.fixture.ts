@@ -142,15 +142,17 @@ export async function apiLogin(
   const res = await ctx.post('/api/auth/login', {
     data: { email, password },
   });
+
+  // Read the body BEFORE disposing the context — disposing invalidates res.
+  const status = res.status();
+  const bodyText = await res.text();
   await ctx.dispose();
 
-  if (!res.ok()) {
-    throw new Error(
-      `apiLogin failed for ${email}: ${res.status()} ${await res.text()}`,
-    );
+  if (status < 200 || status >= 300) {
+    throw new Error(`apiLogin failed for ${email}: ${status} ${bodyText}`);
   }
 
-  const body = await res.json();
+  const body = JSON.parse(bodyText);
   return body.data as { accessToken: string; refreshToken: string; role: string };
 }
 

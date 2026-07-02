@@ -43,7 +43,7 @@ export default defineConfig({
 
     // Always capture on failure
     screenshot: 'only-on-failure',
-    video: 'retain-on-failure',
+    video: 'off',
     trace: 'retain-on-failure',
 
     // Consistent viewport
@@ -52,6 +52,17 @@ export default defineConfig({
     // Don't slow-mo in CI; 50ms locally makes it watchable
     launchOptions: {
       slowMo: process.env.CI ? 0 : 0,
+      // Use system Chrome when the Playwright-managed Chromium binary is absent
+      executablePath: process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH
+        || (() => {
+          const sysPaths = [
+            'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',
+            'C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe',
+            `${process.env.LOCALAPPDATA}\\Google\\Chrome\\Application\\chrome.exe`,
+          ];
+          const fs = require('fs') as typeof import('fs');
+          return sysPaths.find(p => fs.existsSync(p)) ?? undefined;
+        })(),
     },
 
     // Inject base API URL into every page via env var
