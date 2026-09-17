@@ -26,7 +26,7 @@ jobs:
 
       - name: Start services
         run: docker compose up -d postgres redis
-        
+
       - name: Wait for postgres
         run: |
           for i in $(seq 1 30); do

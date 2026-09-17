@@ -32,8 +32,6 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '20'
-          # No cache-dependency-path: package-lock.json files are not committed.
-          # npm install is used below instead of npm ci.
 
       - name: Install dependencies
         working-directory: services/${{ matrix.service }}
@@ -91,44 +89,7 @@ jobs:
       - name: Run FastAPI startup check
         working-directory: ai-service
         run: |
-          # Verify the app can be imported without errors
           python -c "from app.main import app; print('FastAPI app loaded OK')"
         env:
           INTERNAL_SERVICE_SECRET: ci-test-secret
           MODEL_DIR: /tmp/models
-
-  docker-build:
-    needs: [lint-typecheck, ai-service]
-    runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main'
-    strategy:
-      matrix:
-        service:
-          - auth-service
-          - student-service
-          - faculty-service
-          - attendance-service
-          - examination-service
-          - fee-service
-          - notification-service
-          - placement-service
-          - analytics-service
-          - api-gateway
-
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Log in to Docker Hub
-        uses: docker/login-action@v3
-        with:
-          username: ${{ secrets.DOCKER_USERNAME }}
-          password: ${{ secrets.DOCKER_PASSWORD }}
-
-      - name: Build and push ${{ matrix.service }}
-        uses: docker/build-push-action@v5
-        with:
-          context: ./services/${{ matrix.service }}
-          push: true
-          tags: |
-            ${{ secrets.DOCKER_USERNAME }}/eduintel-${{ matrix.service }}:latest
-            ${{ secrets.DOCKER_USERNAME }}/eduintel-${{ matrix.service }}:${{ github.sha }}
