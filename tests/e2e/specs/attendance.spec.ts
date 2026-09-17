@@ -156,7 +156,7 @@ test.describe('Attendance service — API (Req 5)', () => {
   });
 
   test('POST /api/attendance/sessions creates a class session (Req 5.1)', async ({ request }) => {
-    const res = await request.post(`${API_URL}/api/attendance/sessions`, {
+    const res = await request.post(`${API_URL}/api/attendance/classes`, {
       headers: {
         Authorization: `Bearer ${facultyToken}`,
         'x-institution-id': INSTITUTION_ID,
@@ -171,12 +171,12 @@ test.describe('Attendance service — API (Req 5)', () => {
     });
     expect(res.ok()).toBeTruthy();
     const body = await res.json();
-    expect(body.data.id).toBeTruthy();
+    expect(body.data.classSessionId).toBeTruthy();
   });
 
   test('POST /api/attendance/sessions/:id/records marks attendance (Req 5.2)', async ({ request }) => {
     // Create a session first
-    const sessionRes = await request.post(`${API_URL}/api/attendance/sessions`, {
+    const sessionRes = await request.post(`${API_URL}/api/attendance/classes`, {
       headers: {
         Authorization: `Bearer ${facultyToken}`,
         'x-institution-id': INSTITUTION_ID,
@@ -193,7 +193,7 @@ test.describe('Attendance service — API (Req 5)', () => {
 
     // Mark attendance
     const markRes = await request.post(
-      `${API_URL}/api/attendance/sessions/${session.id}/records`,
+      `${API_URL}/api/attendance/classes/${session.classSessionId}/mark`,
       {
         headers: {
           Authorization: `Bearer ${facultyToken}`,

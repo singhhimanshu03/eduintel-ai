@@ -237,7 +237,7 @@ test.describe('Faculty service — API (Req 4)', () => {
     const res = await request.post(`${API_URL}/api/faculty`, {
       headers: { Authorization: `Bearer ${adminToken}` },
       data: {
-        facultyCode:  `FAPI_${ts}`.slice(0, 10),
+        facultyCode:  `FAPI_${ts}`,
         fullName:     'API Faculty Test',
         email:        `fac_api_${ts}@test.edu`,
         designation:  'Lecturer',
@@ -246,7 +246,7 @@ test.describe('Faculty service — API (Req 4)', () => {
     });
     expect(res.ok()).toBeTruthy();
     const body = await res.json();
-    expect(body.data.full_name).toBe('API Faculty Test');
+    expect(body.data.faculty_code).toBe(`FAPI_${ts}`);
   });
 
   test('POST /api/faculty with duplicate email returns 409 or 400', async ({ request }) => {

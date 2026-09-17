@@ -173,12 +173,12 @@ This generates ~3000 synthetic training records and saves 4 `.pkl` model files. 
 
 | Role | Email | Password |
 |---|---|---|
-| College Admin | admin@eduintel.edu | Password@123 |
-| Faculty | faculty1@eduintel.edu | Password@123 |
-| Student | student1@eduintel.edu | Password@123 |
-| Parent | parent1@eduintel.edu | Password@123 |
-| Exam Cell | exam@eduintel.edu | Password@123 |
-| Placement Cell | placement@eduintel.edu | Password@123 |
+| College Admin | admin@eduintel.edu | Admin@1234 |
+| Faculty | faculty1@eduintel.edu | Admin@1234 |
+| Student | student1@eduintel.edu | Admin@1234 |
+| Parent | parent1@eduintel.edu | Admin@1234 |
+| Exam Cell | exam@eduintel.edu | Admin@1234 |
+| Placement Cell | placement@eduintel.edu | Admin@1234 |
 
 > **Note:** Seed password hashes in `db/init/11_seed_data.sql` use a placeholder hash. For actual development, register users via the Register page or generate fresh bcrypt hashes.
 

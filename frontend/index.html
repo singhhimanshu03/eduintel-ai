@@ -2,12 +2,71 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="EduIntel AI — AI-Powered Academic Intelligence Platform for student success analytics, attendance tracking, and predictive insights." />
+    <meta name="theme-color" content="#6366F1" />
+
+    <!-- Favicon — gradient book icon -->
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0%25' stop-color='%236366F1'/%3E%3Cstop offset='100%25' stop-color='%23A855F7'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='32' height='32' rx='8' fill='url(%23g)'/%3E%3Cpath d='M16 8v16M16 8c-1.5-1-3.5-1.5-5.5-1.5S7 7 6 8v16c1-.75 2.5-1 4.5-1s4 .5 5.5 1.5m0-16.5c1.5-1 3.5-1.5 5.5-1.5S25 7 26 8v16c-1-.75-2.5-1-4.5-1s-4 .5-5.5 1.5' stroke='white' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round' fill='none'/%3E%3C/svg%3E" />
+
+    <!-- Google Fonts: Inter (body) + Poppins (headings) -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Poppins:wght@600;700;800&display=swap" rel="stylesheet" />
+
     <title>EduIntel AI — Academic Intelligence Platform</title>
+
+    <!-- Splash screen styles — shown while React hydrates -->
+    <style>
+      #splash {
+        position: fixed; inset: 0; z-index: 9999;
+        display: flex; flex-direction: column;
+        align-items: center; justify-content: center; gap: 1.25rem;
+        background: linear-gradient(135deg, #0F172A 0%, #1E1B4B 50%, #0F172A 100%);
+        transition: opacity 0.4s ease, visibility 0.4s ease;
+      }
+      #splash.hide { opacity: 0; visibility: hidden; pointer-events: none; }
+      #splash .logo {
+        width: 56px; height: 56px; border-radius: 16px;
+        background: linear-gradient(135deg, #6366F1, #A855F7);
+        display: flex; align-items: center; justify-content: center;
+        box-shadow: 0 0 40px rgba(99, 102, 241, 0.4);
+        animation: splash-pulse 2s ease-in-out infinite;
+      }
+      #splash .logo svg { width: 28px; height: 28px; }
+      #splash .text { color: #E2E8F0; font-family: 'Poppins', sans-serif; font-weight: 700; font-size: 1.25rem; letter-spacing: -0.02em; }
+      #splash .bar { width: 120px; height: 3px; border-radius: 4px; background: rgba(255,255,255,0.1); overflow: hidden; }
+      #splash .bar::after {
+        content: ''; display: block; width: 40%; height: 100%; border-radius: 4px;
+        background: linear-gradient(90deg, #6366F1, #A855F7);
+        animation: splash-slide 1.2s ease-in-out infinite;
+      }
+      @keyframes splash-pulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.05); } }
+      @keyframes splash-slide { 0% { transform: translateX(-100%); } 100% { transform: translateX(350%); } }
+    </style>
   </head>
   <body>
+    <!-- Splash screen -->
+    <div id="splash">
+      <div class="logo">
+        <svg fill="none" stroke="white" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24">
+          <path d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+        </svg>
+      </div>
+      <div class="text">EduIntel AI</div>
+      <div class="bar"></div>
+    </div>
+
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
+    <script>
+      // Hide splash once React mounts
+      window.addEventListener('DOMContentLoaded', () => {
+        setTimeout(() => {
+          const s = document.getElementById('splash');
+          if (s) { s.classList.add('hide'); setTimeout(() => s.remove(), 500); }
+        }, 800);
+      });
+    </script>
   </body>
 </html>

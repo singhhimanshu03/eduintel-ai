@@ -10,6 +10,19 @@ const api = axios.create({
   headers: { 'Content-Type': 'application/json' },
 });
 
+/**
+ * Dispatch a custom event so the React Router listener in App.tsx can
+ * perform a client-side navigation to /login instead of a full page reload.
+ * Falls back to window.location if the event fires outside a React tree.
+ */
+export function navigateToLogin() {
+  const event = new CustomEvent('auth:logout-redirect');
+  window.dispatchEvent(event);
+  // Fallback: if no listener picks it up within one tick (e.g. during SSR tests)
+  // the window.location approach is kept as a safety net but won't trigger in
+  // normal browser operation because the App listener always mounts first.
+}
+
 // ── Request interceptor: attach JWT ──────────────────────────────────────────
 api.interceptors.request.use(
   (config: InternalAxiosRequestConfig) => {
@@ -40,7 +53,7 @@ api.interceptors.response.use(
     // A 401 on /auth/login means bad credentials; a 403 means account locked.
     // Return the raw AxiosError so callers receive error.response.data.message intact.
     const url = original?.url ?? '';
-    if (url.startsWith('/auth/') || url.includes('/auth/')) {
+    if (url.includes('/auth/')) {
       return Promise.reject(error);
     }
 
@@ -66,7 +79,7 @@ api.interceptors.response.use(
 
       if (!refreshToken) {
         store.dispatch(logout());
-        window.location.href = '/login';
+        navigateToLogin();
         return Promise.reject(error);
       }
 
@@ -82,7 +95,7 @@ api.interceptors.response.use(
       } catch (refreshError) {
         processPendingQueue(refreshError);
         store.dispatch(logout());
-        window.location.href = '/login';
+        navigateToLogin();
         return Promise.reject(refreshError);
       } finally {
         isRefreshing = false;

@@ -60,13 +60,13 @@ app.post('/api/fees/transactions', async (req: Request, res: Response, next: Nex
     if (paymentStatus === 'completed') {
       await db.query(
         `INSERT INTO student_fee_ledger (student_id, paid_amount, total_fee, balance, fee_status, last_payment_date)
-         VALUES ($1,$2,0,-$2,'paid',now())
+         VALUES ($1,$2::numeric,0,0-$2::numeric,'paid',now())
          ON CONFLICT (student_id) DO UPDATE SET
-           paid_amount = student_fee_ledger.paid_amount + $2,
-           balance = student_fee_ledger.total_fee - (student_fee_ledger.paid_amount + $2),
+           paid_amount = student_fee_ledger.paid_amount + $2::numeric,
+           balance = student_fee_ledger.total_fee - (student_fee_ledger.paid_amount + $2::numeric),
            fee_status = CASE
-             WHEN student_fee_ledger.total_fee <= (student_fee_ledger.paid_amount + $2) THEN 'paid'
-             WHEN (student_fee_ledger.paid_amount + $2) > 0 THEN 'partially_paid'
+             WHEN student_fee_ledger.total_fee <= (student_fee_ledger.paid_amount + $2::numeric) THEN 'paid'
+             WHEN (student_fee_ledger.paid_amount + $2::numeric) > 0 THEN 'partially_paid'
              ELSE 'unpaid' END,
            last_payment_date = now(), updated_at = now()`,
         [studentId, amount]

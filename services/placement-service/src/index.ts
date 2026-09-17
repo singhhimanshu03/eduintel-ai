@@ -65,6 +65,19 @@ app.get('/api/placement/companies', async (req: Request, res: Response, next: Ne
   } catch (err) { next(err); }
 });
 
+// GET /drives
+app.get('/api/placement/drives', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { rows } = await db.query(
+      `SELECT rd.*, c.company_name
+       FROM recruitment_drives rd
+       LEFT JOIN companies c ON c.id = rd.company_id
+       ORDER BY rd.created_at DESC`
+    );
+    res.json({ success: true, data: rows });
+  } catch (err) { next(err); }
+});
+
 // POST /drives
 app.post('/api/placement/drives', async (req: Request, res: Response, next: NextFunction) => {
   try {
@@ -78,20 +91,43 @@ app.post('/api/placement/drives', async (req: Request, res: Response, next: Next
   } catch (err) { next(err); }
 });
 
-// GET /drives/:id/eligible-students
-app.get('/api/placement/drives/:id/eligible-students', async (req: Request, res: Response, next: NextFunction) => {
+// GET /drives/:id/eligible  (canonical — used by tests and frontend)
+// GET /drives/:id/eligible-students  (alias for backwards compatibility)
+async function eligibleStudentsHandler(req: Request, res: Response, next: NextFunction) {
   try {
     const { rows: drive } = await db.query(`SELECT * FROM recruitment_drives WHERE id=$1`, [req.params.id]);
     if (!drive.length) { res.status(404).json({ success: false, message: 'Drive not found' }); return; }
     const d = drive[0];
     const { rows } = await db.query(
       `SELECT * FROM placement_profiles WHERE
-         is_eligible=true AND placement_status='not_placed'
+         is_eligible=true
          AND ($1::decimal IS NULL OR cgpa >= $1)
          AND ($2::int IS NULL OR backlog_count <= $2)`,
       [d.min_cgpa, d.max_backlogs]
     );
     res.json({ success: true, data: rows });
+  } catch (err) { next(err); }
+}
+app.get('/api/placement/drives/:id/eligible',          eligibleStudentsHandler);
+app.get('/api/placement/drives/:id/eligible-students', eligibleStudentsHandler);
+
+// GET /profiles  — list all placement profiles
+app.get('/api/placement/profiles', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { rows } = await db.query(`SELECT * FROM placement_profiles ORDER BY updated_at DESC`);
+    res.json({ success: true, data: rows });
+  } catch (err) { next(err); }
+});
+
+// GET /profiles/:studentId — single profile with readiness score
+app.get('/api/placement/profiles/:studentId', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { rows } = await db.query(
+      `SELECT * FROM placement_profiles WHERE student_id=$1`,
+      [req.params.studentId]
+    );
+    if (!rows.length) { res.status(404).json({ success: false, message: 'Profile not found' }); return; }
+    res.json({ success: true, data: rows[0] });
   } catch (err) { next(err); }
 });
 

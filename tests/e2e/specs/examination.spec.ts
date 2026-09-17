@@ -386,9 +386,9 @@ test.describe('Examination service — API', () => {
     expect(res.ok()).toBeTruthy();
     const body = await res.json();
     expect(body.data.grade).toBeTruthy();
-    expect(body.data.total_marks).toBe(85);
+    expect(parseFloat(body.data.total_marks)).toBe(85);
     // Grade calculation: 85% → A+ (gpaPoints 9)
-    expect(body.data.gpa_points).toBe(9);
+    expect(parseFloat(body.data.gpa_points)).toBe(9);
   });
 
   test('POST /api/exams/marks rejects marks exceeding bounds (Req 19.3)', async ({ request }) => {

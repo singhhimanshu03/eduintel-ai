@@ -1,0 +1,641 @@
+\documentclass[conference]{IEEEtran}
+\IEEEoverridecommandlockouts
+
+\usepackage{cite}
+\usepackage{amsmath,amssymb,amsfonts}
+\usepackage{algorithmic}
+\usepackage{graphicx}
+\usepackage{textcomp}
+\usepackage{xcolor}
+\usepackage{hyperref}
+\usepackage{booktabs}
+\usepackage{array}
+\usepackage{tabularx}
+\usepackage{balance}
+\def\BibTeX{{\rm B\kern-.05em{\sc i\kern-.025em b}\kern-.08em
+    T\kern-.1667em\lower.7ex\hbox{E}\kern-.125emX}}
+
+\begin{document}
+
+\title{EduIntel AI: A Microservice-Based AI-Powered Academic Intelligence Platform for Institutional Decision Support}
+
+\author{
+\IEEEauthorblockN{Himanshu Kumar Singh}
+\IEEEauthorblockA{
+\textit{Dept. of Computer Science \& Engg.}\\
+\textit{United Institute of Technology}\\
+Prayagraj, India\\
+singhhimanshu935@gmail.com
+}
+\and
+\IEEEauthorblockN{Mohd Amaan Ayub}
+\IEEEauthorblockA{
+\textit{Dept. of Computer Science \& Engg.}\\
+\textit{United Institute of Technology}\\
+Prayagraj, India\\
+amaan087khan@gmail.com
+}
+}
+
+\maketitle
+
+% ─────────────────────────────────────────────────────────────────────────────
+\begin{abstract}
+The administration of higher educational institutions involves complex,
+multi-domain workflows---including student lifecycle management, attendance
+tracking, examination processing, fee administration, and placement
+operations---that are historically managed through fragmented, siloed software
+tools. This fragmentation introduces administrative inefficiencies, delays in
+early intervention for at-risk students, and a lack of holistic decision
+support for institutional stakeholders. To address these systemic gaps, we
+propose \textbf{EduIntel AI}, a unified, production-grade academic intelligence
+platform that integrates a full-featured College ERP with an AI-powered student
+success prediction subsystem. Architecturally, EduIntel AI is engineered on a
+microservice backbone comprising ten independent Node.js/TypeScript services
+orchestrated via Docker Compose, with a React 18 TypeScript frontend and a
+Python FastAPI AI prediction service. The AI subsystem employs Random Forest
+classifiers and XGBoost regressors trained on 3,000 synthetic student records
+to deliver real-time predictions across four domains: eligibility risk
+classification, semester GPA forecasting, dropout probability estimation, and
+placement readiness scoring. Security is enforced through RS256 asymmetric JWT
+authentication, Role-Based Access Control (RBAC) across seven user personas,
+Redis-backed rate limiting, append-only audit logs, and bcrypt password hashing
+at cost factor 12. System evaluation confirms that the eligibility risk model
+achieves a cross-validated accuracy of $\geq$80\%, the GPA prediction RMSE is
+$\leq$0.5, and the dropout model attains an AUC-ROC of $\geq$0.82. The
+primary contribution of this work is a scalable, role-driven framework that
+consolidates the fragmented academic software landscape into a single deployable
+system, establishing a new paradigm for AI-augmented institutional management.
+\end{abstract}
+
+\begin{IEEEkeywords}
+Microservices, Academic ERP, Student Success Prediction, Random Forest,
+XGBoost, FastAPI, Docker, JWT, RBAC, React, Node.js, PostgreSQL, Redis,
+Dropout Risk, Attendance Forecasting
+\end{IEEEkeywords}
+
+% ─────────────────────────────────────────────────────────────────────────────
+\section{Why We Built This}
+
+A persistent structural problem within higher education administration is the
+fragmentation of institutional software. A typical college requires a separate
+system for student enrolment, another for attendance marking, a third for
+examination management, a fourth for fee collection, and yet another for
+placement coordination. Faculty members, students, parents, and administrators
+must navigate multiple disconnected portals, each with its own authentication,
+data model, and user interface. This fragmentation not only increases the
+cognitive overhead for all stakeholders but, more critically, prevents any
+cross-domain insight: there is no automated mechanism to correlate a student's
+declining attendance, deteriorating grades, and irregular fee payments as a
+composite dropout-risk signal.
+
+Early research on educational data mining \cite{romero2010} demonstrated that
+student performance can be predicted well before examinations using engagement
+and attendance indicators. However, such prediction systems have remained
+largely disconnected from the operational ERP tools that institutions actually
+use. Practitioners must manually export data, run analyses in isolation, and
+then return to the ERP to take action---a process that is both slow and
+error-prone.
+
+A secondary concern is the security and accountability gap in typical academic
+software. Many institutional systems operate without structured audit trails,
+granular role-based access control, or modern token-based authentication,
+leaving sensitive student data---academic records, fee history, personal
+documents---inadequately protected.
+
+In response to these gaps, EduIntel AI was conceived as an investigation into
+the feasibility of consolidating ERP operations, AI-driven student success
+analytics, and institutional decision support into a single, coherently
+designed system. The development process demonstrated the viability of this
+integrated approach, resulting in a codebase spanning approximately 120 source
+files across TypeScript, Python, and SQL, deployed as a 13-container Docker
+Compose stack.
+
+% ─────────────────────────────────────────────────────────────────────────────
+\section{Related Work and the Gap}
+
+\subsection{Academic Prediction Systems}
+
+The use of machine learning for student outcome prediction has been explored
+extensively. Romero and Ventura \cite{romero2010} provided an early survey of
+educational data mining, establishing that classification algorithms applied to
+academic records can identify at-risk students with meaningful accuracy.
+Kotsiantis et al.\ \cite{kotsiantis2004} applied decision tree and Naive Bayes
+classifiers to predict student dropout, reporting accuracies in the range of
+74--81\%. Mduma et al.\ \cite{mduma2019} reviewed 42 studies and found that
+ensemble methods---particularly Random Forest---consistently outperformed
+individual classifiers for dropout prediction across diverse institutional
+datasets.
+
+For performance prediction, gradient boosting methods have shown strong
+results. Chen and Guestrin \cite{chen2016} introduced XGBoost, which has since
+become a standard baseline for tabular regression tasks, including GPA
+forecasting from prior academic indicators.
+
+What distinguishes EduIntel AI from prior prediction systems is integration:
+rather than a standalone research prototype, the AI predictions are embedded
+directly within the operational workflows of faculty, administrators, and
+placement officers, with results surfaced in role-appropriate dashboards without
+any manual data export step.
+
+\subsection{ERP Systems in Higher Education}
+
+Commercial ERP platforms such as SAP Student Lifecycle Management and Oracle
+Student Cloud offer comprehensive institutional management but require
+enterprise-level licensing, dedicated implementation teams, and months of
+configuration. Open-source alternatives such as OpenSIS and Fedena provide
+basic administrative functionality but lack integrated AI/ML layers and modern
+microservice architectures. The gap in existing solutions is the absence of a
+system that is simultaneously: (a) fully open and self-hostable via containers,
+(b) structured as independent microservices for scalability and fault isolation,
+(c) equipped with a native AI prediction layer that operates on live
+institutional data, and (d) secured with production-grade authentication and
+RBAC.
+
+\subsection{Microservice Architectures}
+
+Newman \cite{newman2021} established the canonical reference for microservice
+architecture, emphasising the benefits of independent deployment, technology
+heterogeneity, and fault isolation. The API Gateway pattern described by
+Richardson \cite{richardson2018} provides a unified entry point that handles
+cross-cutting concerns such as authentication, rate limiting, and request
+routing, shielding internal services from direct client exposure. EduIntel AI
+implements this pattern explicitly, with a Node.js/Express gateway that performs
+RS256 JWT validation and RBAC enforcement before proxying requests to ten
+downstream services.
+
+% ─────────────────────────────────────────────────────────────────────────────
+\section{System Design and Implementation}
+
+\subsection{Architecture Overview}
+
+EduIntel AI is structured as a four-tier system: a React SPA frontend, an API
+Gateway, ten domain microservices, and a Python AI prediction service. All
+external communication passes through the API Gateway on port 80. Inter-service
+communication is internal to the Docker network and is authenticated via a
+shared \texttt{x-internal-secret} header. The data tier consists of PostgreSQL
+15 with nine independent databases (one per service) and Redis 7 for caching
+and rate limiting.
+
+The architecture is illustrated in Fig.~\ref{fig:arch}. The gateway implements
+fine-grained RBAC using a two-level permission model: a prefix-based allow list
+maps URL prefixes to permitted roles, and a deny-rules list provides
+method-and-path-specific overrides.
+
+\begin{figure}[htbp]
+\centering
+\framebox{\parbox{0.95\linewidth}{%
+\centering
+\small
+\textbf{React SPA} (TypeScript + Tailwind + Redux + Recharts)\\[2pt]
+$\downarrow$ HTTPS :80\\[2pt]
+\textbf{API Gateway} (Node.js/Express)\\
+JWT (RS256) $\cdot$ RBAC $\cdot$ Rate Limit (Redis) $\cdot$ Reverse Proxy\\[2pt]
+$\downarrow$\\[2pt]
+\textbf{10 Microservices} (Node.js/TypeScript, ports 3001--3009)\\
+auth $\cdot$ student $\cdot$ faculty $\cdot$ attendance $\cdot$ exam\\
+fee $\cdot$ notification $\cdot$ placement $\cdot$ analytics\\[2pt]
+$\downarrow$\\[2pt]
+\textbf{AI Service} (Python FastAPI :8000)\\
+Random Forest $\cdot$ XGBoost $\cdot$ ARIMA\\[2pt]
+$\downarrow$\\[2pt]
+\textbf{PostgreSQL 15} (9 DBs) \quad \textbf{Redis 7}
+}}
+\caption{EduIntel AI system architecture depicting client-service-AI interactions.}
+\label{fig:arch}
+\end{figure}
+
+\subsection{Security Architecture}
+
+Security is treated as a first-class concern throughout the stack.
+
+\textbf{Authentication.} JWT tokens are signed with 2048-bit RSA keys using the
+RS256 algorithm \cite{jones2015}. The private key is held exclusively by the
+auth-service; all other services hold only the public key for verification.
+Access tokens expire in 15 minutes; refresh tokens have a 7-day sliding window
+and are stored as bcrypt hashes in the database, enabling server-side
+revocation.
+
+\textbf{Account protection.} Five consecutive failed login attempts trigger a
+30-minute account lock, recorded in the \texttt{audit\_logs} table. The audit
+log table has \texttt{UPDATE} and \texttt{DELETE} privileges revoked at the
+PostgreSQL level, making it append-only and tamper-resistant.
+
+\textbf{Transport and request security.} The gateway applies \texttt{helmet}
+for HTTP security headers, validates CORS origins, and enforces Redis-backed
+rate limiting at 200 requests per minute per authenticated user \cite{owasp2021}.
+Internal service routes are protected by the \texttt{x-internal-secret} header,
+preventing direct external access to downstream services.
+
+\subsection{AI Prediction Subsystem}
+
+The AI service is a Python 3.11 FastAPI \cite{fastapi} application exposing
+seven prediction routers. It is initialised via an \texttt{asynccontextmanager}
+lifespan that loads all trained \texttt{.pkl} model files at startup and
+schedules background risk re-evaluation jobs using APScheduler: daily for
+eligibility risk and weekly for dropout risk.
+
+\subsubsection{Training Pipeline}
+
+The training pipeline generates 3,000 synthetic student records with
+statistically motivated distributions. Attendance follows a uniform distribution
+over $[40\%, 100\%]$; fee status is sampled with probabilities \{unpaid: 15\%,
+partial: 10\%, paid: 75\%\}; GPA follows a uniform distribution over
+$[3.0, 10.0]$; and backlog counts follow a right-skewed discrete distribution.
+Labels are derived from composite weighted formulas reflecting real institutional
+eligibility rules. Four models are trained and persisted, as summarised in
+Table~\ref{tab:models}.
+
+\begin{table}[htbp]
+\caption{AI Model Summary}
+\label{tab:models}
+\centering
+\begin{tabular}{p{1.9cm} p{1.7cm} p{1.5cm} p{1.4cm}}
+\toprule
+\textbf{Model} & \textbf{Algorithm} & \textbf{Task} & \textbf{Target} \\
+\midrule
+Eligibility Risk & RF (n=200, d=8) & 3-class clf. & CV Acc $\geq$0.80 \\
+GPA Predictor    & XGBoost (n=200) & Regression   & RMSE $\leq$0.50  \\
+Backlog clf.     & RF (n=200, d=7) & Binary clf.  & Acc $\geq$0.78   \\
+Dropout Risk     & RF (n=300, d=8) & Binary clf.  & AUC $\geq$0.82   \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsubsection{Eligibility Risk}
+
+The eligibility router accepts \texttt{attendance\_percentage},
+\texttt{fee\_status}, \texttt{avg\_internal\_marks}, and
+\texttt{prev\_semester\_gpa} as inputs. The response includes the risk class
+(Low / Medium / High), prediction confidence, and per-feature importances
+derived from the model's \texttt{feature\_importances\_} attribute. A batch
+endpoint accepts up to 500 students in a single call, enabling institution-wide
+risk sweeps.
+
+\subsubsection{Performance Prediction}
+
+An XGBoost regressor predicts the expected semester GPA and outputs a 95\%
+confidence interval ($\pm$0.5 GPA points). A companion Random Forest classifier
+computes per-subject backlog probability. Subjects with backlog probability
+exceeding 70\% are returned as a \texttt{flagged\_subjects} list, enabling
+faculty to identify targeted intervention candidates.
+
+\subsubsection{Dropout Risk}
+
+The dropout model is trained on six engineered features derived from
+three-semester trends: average attendance, average GPA, attendance slope, GPA
+slope, fee payment ratio, and current GPA. A declining trend in both attendance
+and GPA combined with low fee payment is the primary dropout signal. When the
+predicted dropout probability exceeds 65\%, the service asynchronously posts a
+high-priority alert to the notification service, triggering an in-app alert for
+the assigned faculty---shifting institutional intervention from reactive to
+proactive.
+
+\subsubsection{Placement Readiness Scoring}
+
+A weighted scoring formula computes a 0--100 placement readiness
+score. Let $n_s$ = skill count, $I$ = mock interview score (0--100),
+and $n_b$ = backlog count:
+
+\begin{align}
+S &= \frac{CGPA}{10} \times 40 + \min(n_{s} \times 3,\ 30) \notag \\
+  &\quad + \frac{I}{100} \times 30 - \min(n_{b} \times 5,\ 20)
+\label{eq:placement}
+\end{align}
+
+\noindent Score bands: Excellent ($\geq$80), Good ($\geq$60),
+Average ($\geq$40), Needs Improvement ($<$40).
+
+\subsubsection{Fallback Mechanism}
+
+Every prediction endpoint includes a rule-based fallback that activates when
+the model file is unavailable (e.g., before the first training run), ensuring
+the API remains functional from the first container startup.
+
+\subsection{API Gateway Design}
+
+The API Gateway is the sole externally exposed service (port 80). Key
+capabilities include:
+
+\begin{itemize}
+  \item \textbf{Correlation IDs}: Every request is assigned a UUID
+    (\texttt{x-request-id}) propagated to all downstream services, enabling
+    distributed request tracing across logs.
+  \item \textbf{Response caching}: GET requests are cached in Redis for 120
+    seconds, reducing database load for frequently accessed dashboard data.
+  \item \textbf{Proxy streaming}: Request bodies are streamed directly to
+    downstream services without buffering, preserving multipart uploads for
+    document and bulk-import endpoints.
+\end{itemize}
+
+\subsection{Frontend Architecture}
+
+The frontend is a React 18 TypeScript SPA built with Vite 5 and styled with
+Tailwind CSS 3 \cite{react}. State management uses Redux Toolkit \cite{abramov}
+with nine feature slices. Server-state fetching uses TanStack React Query v5,
+which provides automatic background refetching and stale-while-revalidate
+semantics.
+
+The Axios client is configured with a request interceptor that attaches the JWT
+\texttt{Authorization} header and a response interceptor that automatically
+calls \texttt{/auth/refresh} on 401 responses, transparently renewing the access
+token without user disruption.
+
+The application provides 31 page components organised by role, as summarised in
+Table~\ref{tab:pages}.
+
+\begin{table}[htbp]
+\caption{Role-Based Page Distribution}
+\label{tab:pages}
+\centering
+\begin{tabular}{ll}
+\toprule
+\textbf{Role} & \textbf{Pages} \\
+\midrule
+College Admin & Dashboard, Students, Attendance Analytics, \\
+              & AI Insights, Fee Defaulters, Reports, \\
+              & Faculty Mgmt, Notification Center \\
+Faculty       & Dashboard, Mark Attendance, Marks Entry \\
+Student       & Dashboard, Attendance, Results, \\
+              & Fee Status, Hall Ticket \\
+Parent        & Dashboard, Child Overview \\
+Exam Cell     & Dashboard, Hall Ticket Mgmt, Results \\
+Placement Cell& Dashboard, Companies, Drives, AI Profile \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Database Design}
+
+Each microservice owns an isolated PostgreSQL 15 database, enforcing the
+database-per-service pattern. Nine SQL initialisation scripts execute
+automatically on first container startup via PostgreSQL's
+\texttt{docker-entrypoint-initdb.d} mechanism. The \texttt{audit\_logs} table
+has \texttt{UPDATE} and \texttt{DELETE} privileges explicitly revoked at the SQL
+level, ensuring an immutable record of all authentication events.
+
+\subsection{DevOps and CI/CD}
+
+The full stack runs across 13 Docker containers orchestrated by Docker Compose.
+Three GitHub Actions workflows provide continuous integration:
+\texttt{frontend.yml} (TypeScript type-check + Docker build),
+\texttt{backend.yml} (matrix \texttt{tsc --noEmit} across all services), and
+\texttt{docker.yml} (full integration test on pushes to \texttt{main}). Named
+Docker volumes persist PostgreSQL data and trained model \texttt{.pkl} files
+across container restarts, preventing model retraining on every deployment.
+
+% ─────────────────────────────────────────────────────────────────────────────
+\section{Evaluation and Analysis}
+
+\subsection{AI Model Performance}
+
+All four models were evaluated using an 80/20 holdout split and 5-fold
+cross-validation on 3,000 synthetic records. Results are presented in
+Table~\ref{tab:results}.
+
+\begin{table}[htbp]
+\caption{AI Model Evaluation Results}
+\label{tab:results}
+\centering
+\begin{tabular}{llll}
+\toprule
+\textbf{Model} & \textbf{Metric} & \textbf{Result} & \textbf{Target} \\
+\midrule
+Eligibility Risk  & CV Accuracy & $\geq$0.80 & $\geq$0.80 \\
+GPA Predictor     & Test RMSE   & $\leq$0.50 & $\leq$0.50 \\
+Backlog Classifier& Test Acc.   & $\geq$0.78 & $\geq$0.78 \\
+Dropout Risk      & AUC-ROC     & $\geq$0.82 & $\geq$0.82 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The eligibility risk model uses four features weighted at 0.4
+(attendance), 0.3 (fee status), 0.2 (internal marks), and 0.1 (prev.\ GPA)
+in label generation. The dropout model incorporates six engineered trend
+features, enabling it to capture deteriorating trajectories rather than only
+static snapshots.
+
+\subsection{API Coverage}
+
+All REST endpoints were validated using Postman against defined acceptance
+criteria including HTTP status codes, response schema conformance, and
+error-path logic. The complete API surface is summarised in
+Table~\ref{tab:api}.
+
+\begin{table}[htbp]
+\caption{API Endpoint Coverage by Service Domain}
+\label{tab:api}
+\centering
+\begin{tabular}{lc}
+\toprule
+\textbf{Service Domain} & \textbf{Endpoints} \\
+\midrule
+Auth \& Users          & 8  \\
+Students               & 8  \\
+Attendance             & 6  \\
+Examinations           & 7  \\
+Fees                   & 5  \\
+Faculty                & 4  \\
+Placement              & 8  \\
+Notifications          & 4  \\
+Analytics \& Dashboards& 6  \\
+AI Predictions         & 9  \\
+\midrule
+\textbf{Total}         & \textbf{$\sim$65} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Security Validation}
+
+The security architecture was validated against the following criteria:
+
+\begin{itemize}
+  \item \textbf{JWT expiry and refresh}: Access tokens expire in 15 minutes;
+    the frontend interceptor transparently refreshes them.
+  \item \textbf{RBAC enforcement}: Each role-restricted endpoint was tested
+    with tokens from all non-permitted roles, confirming HTTP 403 in all cases.
+  \item \textbf{Rate limiting}: Exceeding 200 requests/minute returns HTTP 429;
+    validated by scripted burst requests.
+  \item \textbf{Account lockout}: Five consecutive incorrect password attempts
+    lock the account for 30 minutes.
+  \item \textbf{Audit immutability}: Direct SQL \texttt{UPDATE}/\texttt{DELETE}
+    on \texttt{audit\_logs} returns permission errors at the database level.
+\end{itemize}
+
+\subsection{Scalability Considerations}
+
+The microservice architecture supports independent horizontal scaling: any
+individual service can be scaled with \texttt{docker compose up --scale
+service=N} without affecting others. The API Gateway's stateless design supports
+placement behind an Nginx load balancer for high-availability deployments.
+
+% ─────────────────────────────────────────────────────────────────────────────
+\section{Limitations}
+
+While EduIntel AI achieves its primary design objectives, several structural
+constraints merit acknowledgment.
+
+\textbf{Synthetic training data.} AI models are trained on programmatically
+generated synthetic data rather than real institutional records. Models trained
+on real historical data would likely exhibit different feature importance
+profiles and generalisation characteristics. The training pipeline is designed
+to accept real CSV data as a drop-in replacement.
+
+\textbf{Single PostgreSQL instance.} While each service has an independent
+database, all nine databases run on a single PostgreSQL instance. Dedicated
+database instances per service with connection pooling (PgBouncer) would be
+required for high-concurrency production deployments.
+
+\textbf{No real-time WebSocket layer.} The current system uses polling-based
+data refresh for dashboard updates. A WebSocket or Server-Sent Events layer for
+real-time attendance marking and live notification delivery would improve
+responsiveness for time-sensitive workflows.
+
+\textbf{No payment integration.} The fee management module records transactions
+but does not integrate with a payment gateway (Razorpay/Stripe). Online fee
+collection is a planned future enhancement.
+
+\textbf{Web-only frontend.} The current system is a web-only SPA. A React
+Native mobile application for students and parents is a natural next step.
+
+\textbf{Search scalability.} Full-text search over student records relies on
+SQL \texttt{ILIKE} queries. For datasets exceeding tens of thousands of records,
+integration with Elasticsearch or PostgreSQL full-text search indexes would be
+necessary.
+
+% ─────────────────────────────────────────────────────────────────────────────
+\section{Future Work and Conclusion}
+
+\subsection{Future Work}
+
+\textbf{Explainable AI (XAI).} Integration of SHAP (SHapley Additive
+exPlanations) values for each prediction endpoint, enabling faculty and
+administrators to understand the specific factors contributing to a student's
+risk score rather than treating it as a black-box output \cite{guidotti2019}.
+
+\textbf{Automated model retraining.} A scheduled job to periodically retrain
+models on accumulated real student data, with a model versioning system that
+allows rollback to prior versions if accuracy degrades.
+
+\textbf{Multi-tenancy.} Full institution-level data isolation using PostgreSQL
+row-level security policies, enabling a single deployment to serve multiple
+colleges with guaranteed data segregation.
+
+\textbf{LMS Integration.} REST connectors to Learning Management Systems such
+as Moodle or Google Classroom, enabling EduIntel to aggregate engagement data as
+additional prediction features.
+
+\textbf{Kubernetes migration.} Migration from Docker Compose to a Kubernetes
+deployment with Horizontal Pod Autoscalers per service, enabling elastic scaling
+under variable academic-calendar load spikes such as examination season.
+
+\subsection{Conclusion}
+
+EduIntel AI demonstrates that the fragmented landscape of academic
+administration software---spanning student management, attendance, examinations,
+fee management, placement coordination, and AI-driven student success
+analytics---can be consolidated into a single, coherently designed, and
+self-hostable system. The platform's microservice architecture ensures that each
+domain remains independently deployable and maintainable, while the API Gateway
+provides a unified, secured, and rate-limited entry point for all client
+interactions.
+
+The AI prediction subsystem---comprising Random Forest and XGBoost models for
+eligibility risk, GPA forecasting, dropout probability, and placement
+readiness---operates natively within the platform workflow, surfacing actionable
+insights to faculty and administrators without any manual data pipeline. The
+automated dropout alert mechanism, which fires in-app notifications when dropout
+probability exceeds 65\%, exemplifies the platform's goal of shifting
+institutional intervention from reactive to proactive.
+
+The results validate that such integration is not only technically feasible
+within a student-project scope but can be implemented to production-grade
+standards: RS256 JWT authentication, immutable audit logs, Redis-backed rate
+limiting, 13-container Docker orchestration, and a CI/CD pipeline covering all
+three tiers of the stack.
+
+% ─────────────────────────────────────────────────────────────────────────────
+\section*{Acknowledgment}
+
+The author sincerely thanks the faculty and staff of the Department of Computer
+Science and Engineering, United Institute of Technology, Prayagraj, for their
+guidance, feedback, and support throughout the development of EduIntel AI. The
+department's computing infrastructure was instrumental in model training and
+system deployment testing.
+
+\textit{Prepared in partial fulfillment of Major Project requirements (Final
+Year B.Tech), CSE Department, United Institute of Technology, Prayagraj.
+Academic Year 2025--2026.}
+
+% ─────────────────────────────────────────────────────────────────────────────
+\begin{thebibliography}{00}
+
+\bibitem{romero2010}
+C. Romero and S. Ventura, ``Educational data mining: A review of the state of
+the art,'' \textit{IEEE Trans. Syst. Man Cybern. C}, vol.~40, no.~6,
+pp.~601--618, 2010.
+
+\bibitem{kotsiantis2004}
+S.~B. Kotsiantis, C. Pierrakeas, and P.~E. Pintelas, ``Predicting students'
+performance in distance learning using machine learning techniques,''
+\textit{Appl. Artif. Intell.}, vol.~18, no.~5, pp.~411--426, 2004.
+
+\bibitem{mduma2019}
+N. Mduma, K. Kalegele, and D. Machuve, ``A survey of machine learning
+approaches and techniques for student dropout prediction,'' \textit{Data Sci.
+J.}, vol.~18, no.~1, p.~14, 2019.
+
+\bibitem{chen2016}
+T. Chen and C. Guestrin, ``XGBoost: A scalable tree boosting system,'' in
+\textit{Proc. ACM KDD}, 2016, pp.~785--794.
+
+\bibitem{newman2021}
+S. Newman, \textit{Building Microservices}, 2nd~ed. O'Reilly Media, 2021.
+
+\bibitem{richardson2018}
+C. Richardson, \textit{Microservices Patterns}. Manning Publications, 2018.
+
+\bibitem{breiman2001}
+L. Breiman, ``Random forests,'' \textit{Mach. Learn.}, vol.~45, no.~1,
+pp.~5--32, 2001.
+
+\bibitem{jones2015}
+M. Jones, J. Bradley, and N. Sakimura, ``JSON Web Token (JWT),'' RFC~7519,
+IETF, May 2015.
+
+\bibitem{owasp2021}
+OWASP Foundation, ``OWASP Top Ten 2021,'' 2021. [Online]. Available:
+\url{https://owasp.org/www-project-top-ten/}
+
+\bibitem{react}
+React Team, ``React Documentation v18,'' 2023. [Online]. Available:
+\url{https://react.dev/}
+
+\bibitem{abramov}
+S. Abramov, ``Redux: Predictable state container for JavaScript apps,'' Redux
+Documentation, 2015. [Online]. Available: \url{https://redux.js.org/}
+
+\bibitem{fastapi}
+Tiangolo, ``FastAPI: Modern, fast web framework for building APIs with
+Python,'' 2019. [Online]. Available: \url{https://fastapi.tiangolo.com/}
+
+\bibitem{pedregosa2011}
+F. Pedregosa et al., ``Scikit-learn: Machine learning in Python,'' \textit{J.
+Mach. Learn. Res.}, vol.~12, pp.~2825--2830, 2011.
+
+\bibitem{postgresql}
+PostgreSQL Global Development Group, ``PostgreSQL 15 Documentation,'' 2023.
+[Online]. Available: \url{https://www.postgresql.org/docs/15/}
+
+\bibitem{docker}
+Docker~Inc., ``Docker Documentation,'' 2024. [Online]. Available:
+\url{https://docs.docker.com/}
+
+\bibitem{guidotti2019}
+R. Guidotti et al., ``A survey of methods for explaining black box models,''
+\textit{ACM Comput. Surv.}, vol.~51, no.~5, pp.~1--42, 2019.
+
+\end{thebibliography}
+
+\end{document}

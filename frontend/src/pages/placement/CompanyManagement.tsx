@@ -17,24 +17,25 @@ export default function CompanyManagement() {
     queryFn: () => api.get('/placement/companies').then(r => r.data.data),
   });
   const [form, setForm] = useState({ companyName: '', industry: '', ctcMin: '', ctcMax: '', role: '' });
+  const [showForm, setShowForm] = useState(false);
 
   const createCompany = useMutation({
     mutationFn: () => api.post('/placement/companies', {
       companyName: form.companyName, industry: form.industry,
       ctcMin: parseFloat(form.ctcMin), ctcMax: parseFloat(form.ctcMax), role: form.role,
     }).then(r => r.data),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['companies'] }); setForm({ companyName: '', industry: '', ctcMin: '', ctcMax: '', role: '' }); },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['companies'] }); setForm({ companyName: '', industry: '', ctcMin: '', ctcMax: '', role: '' }); setShowForm(false); },
   });
 
-  const inputCls = 'border border-gray-300 rounded-lg px-3 py-2 text-sm w-full focus:outline-none focus:ring-2 focus:ring-indigo-400';
-
   const columns = [
-    { header: 'Company',  accessor: 'company_name' as keyof Company },
-    { header: 'Industry', accessor: 'industry' as keyof Company },
+    { header: 'Company',  accessor: 'company_name' as keyof Company, sortable: true },
+    { header: 'Industry', accessor: 'industry' as keyof Company, sortable: true },
     { header: 'Role',     accessor: 'role' as keyof Company },
-    { header: 'CTC Range', accessor: (c: Company) => `₹${c.ctc_min}L – ₹${c.ctc_max}L` },
+    { header: 'CTC Range', accessor: (c: Company) => (
+      <span style={{ color: 'var(--color-text-base)' }}>₹{c.ctc_min}L – ₹{c.ctc_max}L</span>
+    )},
     { header: 'Status', accessor: (c: Company) => (
-      <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${c.is_active ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}>
+      <span className={`badge ${c.is_active ? 'badge-success' : 'badge-neutral'}`}>
         {c.is_active ? 'Active' : 'Inactive'}
       </span>
     )},
@@ -42,33 +43,64 @@ export default function CompanyManagement() {
 
   return (
     <div className="space-y-6">
-      <PageHeader title="Company Management" subtitle="Manage recruiting companies and drives" />
+      <PageHeader title="Company Management" subtitle="Manage recruiting companies and drives"
+        action={
+          <button onClick={() => setShowForm(!showForm)} className={showForm ? 'btn-secondary' : 'btn-primary'}>
+            {showForm ? (
+              <><svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+              </svg> Cancel</>
+            ) : (
+              <><svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+              </svg> Add Company</>
+            )}
+          </button>
+        }
+      />
 
-      <div className="bg-white rounded-xl border border-gray-200 p-5">
-        <h3 className="font-semibold text-gray-700 mb-4">+ Add Company</h3>
-        <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-          {[
-            ['Company Name', 'companyName', 'TCS'],
-            ['Industry',     'industry',    'IT Services'],
-            ['Role',         'role',        'Software Engineer'],
-            ['CTC Min (L)',  'ctcMin',      '4'],
-            ['CTC Max (L)',  'ctcMax',      '8'],
-          ].map(([label, key, placeholder]) => (
-            <div key={key}>
-              <label className="text-xs text-gray-500 mb-1 block">{label}</label>
-              <input className={inputCls} placeholder={placeholder}
-                value={(form as Record<string, string>)[key]}
-                onChange={e => setForm(f => ({ ...f, [key]: e.target.value }))} />
-            </div>
-          ))}
+      {showForm && (
+        <div className="card p-5 animate-slide-down">
+          <h3 className="text-sm font-heading font-bold mb-4 flex items-center gap-2" style={{ color: 'var(--color-text-base)' }}>
+            <svg className="w-4 h-4" fill="none" stroke="var(--color-primary)" strokeWidth={2} viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 21h19.5m-18-18v18m10.5-18v18m6-13.5V21M6.75 6.75h.75m-.75 3h.75m-.75 3h.75m3-6h.75m-.75 3h.75m-.75 3h.75M6.75 21v-3.375c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21M3 3h12m-.75 4.5H21m-3.75 0h.008v.008h-.008v-.008zm0 3h.008v.008h-.008v-.008zm0 3h.008v.008h-.008v-.008z" />
+            </svg>
+            New Company
+          </h3>
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+            {[
+              ['Company Name', 'companyName', 'TCS'],
+              ['Industry',     'industry',    'IT Services'],
+              ['Role',         'role',        'Software Engineer'],
+              ['CTC Min (L)',  'ctcMin',      '4'],
+              ['CTC Max (L)',  'ctcMax',      '8'],
+            ].map(([label, key, placeholder]) => (
+              <div key={key}>
+                <label className="text-xs font-semibold mb-1.5 block" style={{ color: 'var(--color-text-muted)' }}>{label}</label>
+                <input className="input-base" placeholder={placeholder}
+                  value={(form as Record<string, string>)[key]}
+                  onChange={e => setForm(f => ({ ...f, [key]: e.target.value }))} />
+              </div>
+            ))}
+          </div>
+          <button onClick={() => createCompany.mutate()} disabled={createCompany.isPending || !form.companyName}
+            className="btn-primary mt-4">
+            {createCompany.isPending ? (
+              <><svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+              </svg> Adding…</>
+            ) : 'Add Company'}
+          </button>
         </div>
-        <button onClick={() => createCompany.mutate()} disabled={createCompany.isPending}
-          className="mt-4 bg-indigo-600 text-white px-5 py-2 rounded-lg text-sm hover:bg-indigo-700 disabled:opacity-50">
-          {createCompany.isPending ? 'Adding…' : 'Add Company'}
-        </button>
-      </div>
+      )}
 
-      {isLoading ? <LoadingSpinner /> : <Table columns={columns} data={companies as Company[]} keyField="id" emptyMessage="No companies added yet." />}
+      {isLoading ? <LoadingSpinner /> : (
+        <Table columns={columns} data={companies as Company[]} keyField="id"
+          emptyMessage="No companies added yet" emptyIcon="🏢"
+          emptyAction={{ label: '+ Add Company', onClick: () => setShowForm(true) }}
+          searchable searchPlaceholder="Search companies…" />
+      )}
     </div>
   );
 }

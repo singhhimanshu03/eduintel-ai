@@ -25,7 +25,24 @@ export interface AuthUser {
 }
 
 export interface LoginRequest  { email: string; password: string; }
-export interface LoginResponse { accessToken: string; refreshToken: string; role: UserRole; }
+export interface LoginResponse {
+  accessToken: string;
+  refreshToken: string;
+  role: UserRole;
+  /** Populated by the backend since v2 — always present for new logins */
+  userId?: string;
+  institutionId?: string;
+}
+
+/** Decoded payload embedded inside the RS256 access token */
+export interface JwtPayload {
+  userId: string;
+  email: string;
+  role: UserRole;
+  institutionId?: string;
+  iat?: number;
+  exp?: number;
+}
 
 // ─── Student ───────────────────────────────────────────────────────────────────
 export type EnrollmentStatus = 'active' | 'inactive' | 'graduated' | 'dropped';

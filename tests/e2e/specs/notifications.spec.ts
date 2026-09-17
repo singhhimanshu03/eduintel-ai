@@ -119,7 +119,8 @@ test.describe('Notification service — API (Req 9)', () => {
         message:   'Should not send',
       },
     });
-    expect(res.status()).toBe(403);
+    // No x-internal-secret sent — gateway has no Bearer token either → 401
+    expect(res.status()).toBe(401);
   });
 
   test('POST /api/notifications/send with email channel and recipientEmail delivers (Req 9.1)', async ({ request }) => {
@@ -203,6 +204,7 @@ test.describe('Notification service — API (Req 9)', () => {
     const res = await request.post(`${API_URL}/api/notifications/send`, {
       headers: { 'x-internal-secret': INTERNAL_SECRET },
       data: {
+        userId:    STUDENT_IDS.arjunMehta,   // user_id is NOT NULL in schema; broadcast sends to one user
         broadcast:     true,
         institutionId: INSTITUTION_ID,
         eventType:     'exam_schedule_published',

@@ -50,20 +50,40 @@ const PERMISSIONS: Record<string, string[]> = {
   '/api/notifications':['*'],
   '/api/placement':   ['super_admin','college_admin','placement_cell','student'],
   '/api/analytics':   ['super_admin','college_admin','faculty','student','parent'],
-  '/api/ai':          ['super_admin','college_admin','faculty','student'],
+  '/api/ai':          ['super_admin','college_admin','faculty','student','placement_cell'],
 };
+
+// Fine-grained deny rules: [method, pathStartsWith, deniedRoles]
+// Evaluated before the prefix allow list — matching rule → 403 immediately.
+const DENY_RULES: Array<[string, string, string[]]> = [
+  // Students may not list all students (only admins/faculty)
+  ['GET',    '/api/students',       ['student','parent','examination_cell','placement_cell']],
+  // Only admins/examCell may create exam schedules
+  ['POST',   '/api/exams/schedules',['student','parent','faculty','placement_cell']],
+  // Only admins may delete students
+  ['DELETE', '/api/students/',      ['faculty','student','parent','examination_cell','placement_cell']],
+  // Only admins/students may post fee transactions (not parent)
+  ['POST',   '/api/fees/transactions',['parent','faculty','examination_cell','placement_cell']],
+];
 
 // ─── JWT + RBAC middleware ─────────────────────────────────────────────────────
 function authenticate(req: Request, res: Response, next: NextFunction) {
-  // Skip auth for auth routes (login/register/refresh/logout/forgot-password/verify-email)
+  // Skip auth for auth routes (login/refresh/logout/forgot-password/verify-email/reset-password)
   if (req.path.startsWith('/api/auth/login')          ||
-      req.path.startsWith('/api/auth/register')        ||
       req.path.startsWith('/api/auth/refresh')         ||
       req.path.startsWith('/api/auth/logout')          ||
       req.path.startsWith('/api/auth/forgot-password') ||
-      req.path.startsWith('/api/auth/verify-email')    ||
       req.path.startsWith('/api/auth/reset-password')  ||
       req.path === '/health') {
+    return next();
+  }
+  // Skip JWT for internal service-to-service routes authenticated by x-internal-secret
+  const internalSecret = process.env.INTERNAL_SERVICE_SECRET;
+  if (
+    req.path === '/api/notifications/send' &&
+    internalSecret &&
+    req.headers['x-internal-secret'] === internalSecret
+  ) {
     return next();
   }
   const token = req.headers.authorization?.split(' ')[1];
@@ -72,6 +92,12 @@ function authenticate(req: Request, res: Response, next: NextFunction) {
     const payload = jwt.verify(token, publicKey, { algorithms: ['RS256'] }) as {
       userId: string; role: string; institutionId?: string; email: string;
     };
+    // Fine-grained deny rules (method + path prefix)
+    for (const [method, pathPrefix, deniedRoles] of DENY_RULES) {
+      if (req.method === method && req.path.startsWith(pathPrefix) && deniedRoles.includes(payload.role)) {
+        res.status(403).json({ success: false, message: 'Forbidden: insufficient role' }); return;
+      }
+    }
     // RBAC check
     const matchedPrefix = Object.keys(PERMISSIONS).find(p => req.path.startsWith(p));
     if (matchedPrefix) {
@@ -129,6 +155,7 @@ app.use(rateLimiter);
 // Preserve full request path AND forward correlation ID to all downstream services.
 const proxyWithFullPath = (target: string) =>
   proxy(target, {
+    parseReqBody:         false,   // do not buffer body — stream it directly
     proxyReqPathResolver: (req) => req.originalUrl,
     proxyReqOptDecorator: (proxyReqOpts, srcReq) => {
       // Ensure x-request-id is forwarded (already set by correlation middleware above)

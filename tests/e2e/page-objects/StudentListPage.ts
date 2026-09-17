@@ -35,7 +35,7 @@ export class StudentListPage {
     this.searchInput = page.getByPlaceholder(/search by name, code, or email/i);
 
     this.table     = page.getByRole('table');
-    this.tableRows = page.getByRole('table').getByRole('row').filter({ hasNot: page.getByRole('columnheader') });
+    this.tableRows = page.getByRole('table').getByRole('row').filter({ hasNot: page.locator('th') });
     this.emptyMsg  = page.getByText(/no students found/i);
 
     this.spinner = page.getByText(/loading/i);

@@ -29,11 +29,11 @@ export class ParentDashboardPage {
   constructor(page: Page) {
     this.page = page;
 
-    this.pageTitle         = page.getByRole('heading', { name: /parent portal|my child/i }).first();
-    this.attendanceSection = page.getByText(/attendance/i).first();
-    this.resultsSection    = page.getByText(/results|performance/i).first();
-    this.alertsSection     = page.getByText(/alert|warning|reminder/i).first();
-    this.riskScoreSection  = page.getByText(/risk score|eligibility risk/i).first();
+    this.pageTitle         = page.getByRole('heading', { name: /parent portal|my child|child's academic/i }).first();
+    this.attendanceSection = page.getByText(/average attendance/i).first();
+    this.resultsSection    = page.getByText(/current gpa/i).first();
+    this.alertsSection     = page.getByText(/alert|warning|reminder|backlog/i).first();
+    this.riskScoreSection  = page.getByText(/ai risk level/i).first();
     this.spinner           = page.getByText(/loading/i);
 
     this.attendancePercentage = page.getByText(/%/).first();
@@ -48,7 +48,15 @@ export class ParentDashboardPage {
   async goto(): Promise<void> {
     await this.page.goto('/parent');
     await this.page.waitForLoadState('networkidle');
-    await this.spinner.waitFor({ state: 'hidden', timeout: 15_000 }).catch(() => {});
+    // Parent portal requires entering a student ID before data renders
+    const input = this.page.getByPlaceholder(/student id/i);
+    if (await input.isVisible({ timeout: 3_000 }).catch(() => false)) {
+      await input.fill('00000000-0000-0000-0000-000000000003');
+      await this.page.getByRole('button', { name: /view/i }).click();
+      await this.spinner.waitFor({ state: 'hidden', timeout: 15_000 }).catch(() => {});
+    } else {
+      await this.spinner.waitFor({ state: 'hidden', timeout: 15_000 }).catch(() => {});
+    }
   }
 
   // ── Assertions ────────────────────────────────────────────────────────────

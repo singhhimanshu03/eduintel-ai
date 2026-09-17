@@ -47,6 +47,27 @@ app.post('/api/faculty', async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
+// POST /internal — create faculty with explicit id (service-to-service)
+app.post('/api/faculty/internal', async (req, res, next) => {
+  try {
+    if (req.headers['x-internal-secret'] !== process.env.INTERNAL_SERVICE_SECRET) {
+      res.status(401).json({ success: false, message: 'Unauthorized: invalid internal secret' });
+      return;
+    }
+    const { id, institutionId, facultyCode, fullName, email, phone, departmentId, designation } = req.body;
+    if (!id || !institutionId || !facultyCode || !fullName || !email) {
+      res.status(400).json({ success: false, message: 'Missing required fields: id, institutionId, facultyCode, fullName, email' });
+      return;
+    }
+    const { rows } = await db.query(
+      `INSERT INTO faculty (id, institution_id, faculty_code, full_name, email, phone, department_id, designation)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8) RETURNING id, faculty_code`,
+      [id, institutionId, facultyCode, fullName, email, phone ?? null, departmentId ?? null, designation ?? null]
+    );
+    res.status(201).json({ success: true, data: rows[0] });
+  } catch (err) { next(err); }
+});
+
 // GET /:id
 app.get('/api/faculty/:id', async (req, res, next) => {
   try {

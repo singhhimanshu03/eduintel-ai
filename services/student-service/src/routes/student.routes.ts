@@ -7,6 +7,16 @@ import { db } from '../config/db';
 
 const router = Router();
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } });
+const INTERNAL_SECRET = () => process.env.INTERNAL_SERVICE_SECRET || '';
+
+// ─── Internal secret guard ────────────────────────────────────────────────────
+function requireInternalSecret(req: Request, res: Response): boolean {
+  if (req.headers['x-internal-secret'] !== INTERNAL_SECRET()) {
+    res.status(401).json({ success: false, message: 'Unauthorized: invalid internal secret' });
+    return false;
+  }
+  return true;
+}
 
 const StudentSchema = z.object({
   studentCode: z.string().min(1),
@@ -71,6 +81,49 @@ router.post('/', async (req: Request, res: Response, next: NextFunction) => {
   } catch (err) { next(err); }
 });
 
+// ─── POST /internal — create student with explicit id (service-to-service) ────
+router.post('/internal', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    if (!requireInternalSecret(req, res)) return;
+    const { id, institutionId, studentCode, fullName, email, phone, gender,
+            dateOfBirth, departmentId, courseId, currentSemester } = req.body;
+    if (!id || !institutionId || !studentCode || !fullName || !email) {
+      res.status(400).json({ success: false, message: 'Missing required fields: id, institutionId, studentCode, fullName, email' });
+      return;
+    }
+    const { rows } = await db.query(
+      `INSERT INTO students (id, institution_id, student_code, full_name, email, phone, gender,
+        date_of_birth, department_id, course_id, current_semester)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) RETURNING id, student_code`,
+      [id, institutionId, studentCode, fullName, email, phone ?? null,
+       gender ?? null, dateOfBirth ?? null, departmentId ?? null,
+       courseId ?? null, currentSemester ?? null]
+    );
+    res.status(201).json({ success: true, data: rows[0] });
+  } catch (err) { next(err); }
+});
+
+// ─── PATCH /internal/:id/parent — set parent_id (service-to-service) ──────────
+router.patch('/internal/:id/parent', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    if (!requireInternalSecret(req, res)) return;
+    const { parentId } = req.body;
+    if (!parentId) {
+      res.status(400).json({ success: false, message: 'parentId is required' });
+      return;
+    }
+    const { rowCount } = await db.query(
+      `UPDATE students SET parent_id=$1, updated_at=now() WHERE id=$2`,
+      [parentId, req.params.id]
+    );
+    if (!rowCount) {
+      res.status(404).json({ success: false, message: 'Student not found' });
+      return;
+    }
+    res.json({ success: true, message: 'Parent linked' });
+  } catch (err) { next(err); }
+});
+
 // ─── GET /:id — get student ────────────────────────────────────────────────────
 router.get('/:id', async (req: Request, res: Response, next: NextFunction) => {
   try {
@@ -78,13 +131,10 @@ router.get('/:id', async (req: Request, res: Response, next: NextFunction) => {
     const userId = req.headers['x-user-id'] as string;
     const { id } = req.params;
 
-    // Students can only view their own profile
-    if (role === 'student') {
-      const { rows: mapping } = await db.query(
-        `SELECT id FROM students WHERE id=$1 AND email=(SELECT email FROM students WHERE id=$1)`, [id]
-      );
-      // Simple check: student's userId must match the student record linked to their auth account
-      // (In production, student_id would be stored in JWT claims)
+    // Students can only view their own profile (student.id === auth user.id)
+    if (role === 'student' && userId !== id) {
+      res.status(403).json({ success: false, message: 'Forbidden: you can only view your own profile' });
+      return;
     }
 
     const { rows } = await db.query(`SELECT * FROM students WHERE id=$1`, [id]);

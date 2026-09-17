@@ -15,11 +15,11 @@ export const dashboardService = {
     api.get(`/analytics/dashboard/parent/${studentId}`).then(r => r.data.data),
 
   exportReport: async (type: string, format: 'excel' | 'pdf') => {
-    const token = JSON.parse(localStorage.getItem('auth') || '{}').accessToken as string;
-    const resp = await fetch(`/api/analytics/reports/${type}/export?format=${format}`, {
-      headers: { Authorization: `Bearer ${token}` },
+    const resp = await api.get(`/analytics/reports/${type}/export`, {
+      params: { format },
+      responseType: 'blob',
     });
-    const blob = await resp.blob();
+    const blob = new Blob([resp.data]);
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;

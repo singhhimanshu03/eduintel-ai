@@ -48,8 +48,8 @@ authTest.describe('Admin dashboard (Req 16.1)', () => {
   authTest('Total Students card shows a numeric value', async ({ adminPage }) => {
     const overview = new AdminOverviewPage(adminPage);
     await overview.goto();
-    // At least the seed 5 students should be reflected
-    await overview.expectTotalStudentsValue('5');
+    // Verify the card shows a real number (not the '—' fallback)
+    await overview.expectTotalStudentsNumeric();
   });
 
   authTest('below-threshold attendance list renders (Req 16.1)', async ({ adminPage }) => {

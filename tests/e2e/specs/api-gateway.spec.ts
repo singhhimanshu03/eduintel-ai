@@ -121,11 +121,11 @@ test.describe('API Gateway routing (Req 18.1)', () => {
     const res = await request.post(`${API_URL}/api/ai/eligibility-risk`, {
       headers: { Authorization: `Bearer ${adminToken}` },
       data: {
-        studentId:            '00000000-0000-0000-0000-000000000003',
-        attendancePercentage: 80,
-        feeStatus:            'paid',
-        avgInternalMarks:     30,
-        prevSemesterGpa:      7.5,
+        student_id:            '00000000-0000-0000-0000-000000000003',
+        attendance_percentage: 80,
+        fee_status:            'paid',
+        avg_internal_marks:    30,
+        prev_semester_gpa:     7.5,
       },
     });
     expect(res.ok()).toBeTruthy();

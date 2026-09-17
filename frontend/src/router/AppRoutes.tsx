@@ -5,7 +5,6 @@ import RoleBasedRoute from './RoleBasedRoute';
 
 // Auth pages
 import Login          from '../pages/Login';
-import Register       from '../pages/Register';
 import ForgotPassword from '../pages/ForgotPassword';
 import ResetPassword  from '../pages/ResetPassword';
 import Unauthorized   from '../pages/Unauthorized';
@@ -42,7 +41,6 @@ export default function AppRoutes() {
     <Routes>
       {/* Public routes */}
       <Route path="/login"           element={isAuthenticated ? <Navigate to={home} replace /> : <Login />} />
-      <Route path="/register"        element={<Register />} />
       <Route path="/forgot-password" element={<ForgotPassword />} />
       <Route path="/reset-password"  element={<ResetPassword />} />
       <Route path="/unauthorized"    element={<Unauthorized />} />

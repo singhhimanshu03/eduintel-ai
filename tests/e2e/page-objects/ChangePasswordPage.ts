@@ -287,13 +287,17 @@ export class ReportsPage {
   }
 
   async clickExportReport(reportType: string): Promise<void> {
-    const btn = this.page.getByRole('button', { name: new RegExp(reportType, 'i') });
-    await btn.click();
+    // Buttons are labelled "📊 Excel" / "📄 PDF" — scope to the card whose heading matches reportType
+    const card = this.page.locator('.card').filter({ hasText: new RegExp(reportType, 'i') });
+    await card.getByRole('button', { name: /excel/i }).click();
   }
 
   async expectReportButtonsPresent(): Promise<void> {
-    // At least attendance and fee reports should be present
-    await expect(this.page.getByRole('button', { name: /attendance/i })).toBeVisible({ timeout: 8_000 });
-    await expect(this.page.getByRole('button', { name: /fee/i })).toBeVisible({ timeout: 8_000 });
+    // Buttons are labelled "📊 Excel" / "📄 PDF" scoped within each report type card.
+    // Verify at least the attendance and fee cards each have an Excel export button.
+    const attendanceCard = this.page.locator('.card').filter({ hasText: /attendance report/i });
+    const feeCard        = this.page.locator('.card').filter({ hasText: /fee collection/i });
+    await expect(attendanceCard.getByRole('button', { name: /excel/i })).toBeVisible({ timeout: 8_000 });
+    await expect(feeCard.getByRole('button', { name: /excel/i })).toBeVisible({ timeout: 8_000 });
   }
 }

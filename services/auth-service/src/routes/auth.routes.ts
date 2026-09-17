@@ -3,6 +3,7 @@ import { z } from 'zod';
 import bcrypt from 'bcryptjs';
 import { v4 as uuidv4 } from 'uuid';
 import crypto from 'crypto';
+import axios from 'axios';
 import { db } from '../config/db';
 import { redisClient } from '../config/redis';
 import { signAccessToken } from '../utils/jwt';
@@ -13,92 +14,213 @@ const router = Router();
 const BCRYPT_COST = parseInt(process.env.BCRYPT_COST || '12');
 
 // ─── Schemas ───────────────────────────────────────────────────────────────────
-const RegisterSchema = z.object({
-  email: z.string().email(),
-  password: z.string().min(8),
-  role: z.enum([
-    'super_admin','college_admin','faculty','student',
-    'parent','examination_cell','placement_cell',
-  ]),
-  institutionId: z.string().uuid().optional(),
-});
-
 const LoginSchema = z.object({
   email: z.string().email(),
   password: z.string(),
 });
 
-// ─── POST /register ────────────────────────────────────────────────────────────
-/**
- * @swagger
- * /api/auth/register:
- *   post:
- *     summary: Register a new user
- *     tags: [Auth]
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             required: [email, password, role]
- *             properties:
- *               email: { type: string }
- *               password: { type: string }
- *               role: { type: string }
- *     responses:
- *       201: { description: User registered }
- *       400: { description: Validation error }
- */
-router.post('/register', async (req, res, next) => {
+const CreateUserSchema = z.object({
+  email: z.string().email(),
+  fullName: z.string().min(1),
+  role: z.enum(['student', 'faculty', 'parent', 'examination_cell', 'placement_cell']),
+  institutionId: z.string().uuid(),
+  // Role-specific fields (validated per-role below)
+  studentCode: z.string().optional(),
+  phone: z.string().optional(),
+  gender: z.string().optional(),
+  dateOfBirth: z.string().optional(),
+  currentSemester: z.number().int().min(1).max(12).optional(),
+  departmentId: z.string().uuid().optional(),
+  courseId: z.string().uuid().optional(),
+  facultyCode: z.string().optional(),
+  designation: z.string().optional(),
+  studentId: z.string().uuid().optional(), // for parent role
+});
+
+const ADMIN_ROLES = ['college_admin', 'super_admin'];
+const INTERNAL_SECRET = () => process.env.INTERNAL_SERVICE_SECRET || '';
+const STUDENT_SERVICE_URL = () => process.env.STUDENT_SERVICE_URL || 'http://student-service:3002';
+const FACULTY_SERVICE_URL = () => process.env.FACULTY_SERVICE_URL || 'http://faculty-service:3003';
+
+// ─── POST /admin/create-user (admin-only) ─────────────────────────────────────
+router.post('/admin/create-user', async (req, res, next) => {
   try {
-    const body = RegisterSchema.parse(req.body);
-    const passwordHash = await bcrypt.hash(body.password, BCRYPT_COST);
-    const verificationToken = crypto.randomBytes(32).toString('hex');
-    const tokenExpiry = new Date(Date.now() + 24 * 60 * 60 * 1000);
+    const callerRole = req.headers['x-user-role'] as string;
+    if (!ADMIN_ROLES.includes(callerRole)) {
+      res.status(403).json({ success: false, message: 'Forbidden: admin role required' });
+      return;
+    }
 
+    const body = CreateUserSchema.parse(req.body);
+
+    // Role-specific field validation
+    if (body.role === 'student' && !body.studentCode) {
+      res.status(400).json({ success: false, message: 'studentCode is required for student role' });
+      return;
+    }
+    if (body.role === 'faculty' && !body.facultyCode) {
+      res.status(400).json({ success: false, message: 'facultyCode is required for faculty role' });
+      return;
+    }
+    if (body.role === 'parent' && !body.studentId) {
+      res.status(400).json({ success: false, message: 'studentId is required for parent role' });
+      return;
+    }
+
+    // Generate a crypto-random password (never disclosed, not even to admin)
+    const randomPassword = crypto.randomBytes(32).toString('hex');
+    const passwordHash = await bcrypt.hash(randomPassword, BCRYPT_COST);
+
+    // Insert user into auth_db with is_verified = false
     const { rows } = await db.query(
-      `INSERT INTO users (email, password_hash, role, institution_id)
-       VALUES ($1, $2, $3, $4) RETURNING id, email, role`,
-      [body.email, passwordHash, body.role, body.institutionId ?? null]
+      `INSERT INTO users (email, password_hash, role, institution_id, is_verified)
+       VALUES ($1, $2, $3, $4, false) RETURNING id, email, role`,
+      [body.email, passwordHash, body.role, body.institutionId]
     );
-    const user = rows[0];
+    const newUser = rows[0];
 
+    // Branch on role — call downstream service to create linked profile
+    try {
+      if (body.role === 'student') {
+        await axios.post(`${STUDENT_SERVICE_URL()}/api/students/internal`, {
+          id: newUser.id,
+          institutionId: body.institutionId,
+          studentCode: body.studentCode,
+          fullName: body.fullName,
+          email: body.email,
+          phone: body.phone,
+          gender: body.gender,
+          dateOfBirth: body.dateOfBirth,
+          currentSemester: body.currentSemester,
+          departmentId: body.departmentId,
+          courseId: body.courseId,
+        }, { headers: { 'x-internal-secret': INTERNAL_SECRET() }, timeout: 10000 });
+
+      } else if (body.role === 'faculty') {
+        await axios.post(`${FACULTY_SERVICE_URL()}/api/faculty/internal`, {
+          id: newUser.id,
+          institutionId: body.institutionId,
+          facultyCode: body.facultyCode,
+          fullName: body.fullName,
+          email: body.email,
+          phone: body.phone,
+          departmentId: body.departmentId,
+          designation: body.designation,
+        }, { headers: { 'x-internal-secret': INTERNAL_SECRET() }, timeout: 10000 });
+
+      } else if (body.role === 'parent') {
+        await axios.patch(
+          `${STUDENT_SERVICE_URL()}/api/students/internal/${body.studentId}/parent`,
+          { parentId: newUser.id },
+          { headers: { 'x-internal-secret': INTERNAL_SECRET() }, timeout: 10000 }
+        );
+      }
+      // examination_cell / placement_cell — no downstream call needed
+    } catch (downstreamErr) {
+      // Rollback: delete the just-created users row so no orphan remains
+      await db.query(`DELETE FROM users WHERE id=$1`, [newUser.id]);
+      console.error('Downstream service call failed during user creation:', downstreamErr);
+      res.status(500).json({
+        success: false,
+        message: 'Failed to create profile in downstream service. User creation rolled back.',
+      });
+      return;
+    }
+
+    // Create invite token (reusing password_reset_tokens table).
+    // Store the SHA-256 hash in the DB; send the raw token in the email link
+    // so a DB dump never yields a usable token.
+    const inviteToken = crypto.randomBytes(32).toString('hex');
+    const inviteTokenHash = crypto.createHash('sha256').update(inviteToken).digest('hex');
+    const tokenExpiry = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
     await db.query(
-      `INSERT INTO email_verification_tokens (user_id, token, expires_at)
-       VALUES ($1, $2, $3)`,
-      [user.id, verificationToken, tokenExpiry]
+      `INSERT INTO password_reset_tokens (user_id, token, expires_at) VALUES ($1, $2, $3)`,
+      [newUser.id, inviteTokenHash, tokenExpiry]
     );
 
-    const verifyUrl = `${process.env.APP_URL || 'http://localhost:3000'}/verify-email?token=${verificationToken}`;
+    // Send invite email (fail-soft — do NOT roll back account if email fails)
+    const inviteUrl = `${process.env.APP_URL || 'http://localhost:3000'}/reset-password?token=${inviteToken}`;
     await sendEmail(
-      user.email,
-      'Verify your EduIntel AI account',
-      `<p>Click <a href="${verifyUrl}">here</a> to verify your email. Link expires in 24 hours.</p>`
-    ).catch(() => console.warn('Email send failed — continuing'));
+      body.email,
+      'You\'re invited to EduIntel AI',
+      `<p>Hi ${body.fullName},</p>
+       <p>An account has been created for you on EduIntel AI as <strong>${body.role.replace('_', ' ')}</strong>.</p>
+       <p>Click <a href="${inviteUrl}">here</a> to set your password and activate your account.</p>
+       <p>This link expires in 24 hours.</p>`
+    ).catch(() => console.warn(`Invite email to ${body.email} failed — account created, invite can be resent`));
 
-    await writeAuditLog({ userId: user.id, action: 'REGISTER', outcome: 'SUCCESS' });
-    res.status(201).json({ success: true, data: { userId: user.id, email: user.email } });
+    await writeAuditLog({
+      userId: req.headers['x-user-id'] as string,
+      action: 'ADMIN_CREATE_USER',
+      outcome: 'SUCCESS',
+      metadata: { createdUserId: newUser.id, role: body.role, email: body.email },
+    });
+
+    res.status(201).json({ success: true, data: { userId: newUser.id } });
   } catch (err) {
     next(err);
   }
 });
 
-// ─── GET /verify-email ─────────────────────────────────────────────────────────
-router.get('/verify-email', async (req, res, next) => {
+// ─── POST /admin/resend-invite/:userId (admin-only) ───────────────────────────
+router.post('/admin/resend-invite/:userId', async (req, res, next) => {
   try {
-    const { token } = req.query as { token: string };
-    const { rows } = await db.query(
-      `SELECT * FROM email_verification_tokens WHERE token=$1 AND used=false AND expires_at > now()`,
-      [token]
-    );
-    if (!rows.length) {
-      res.status(400).json({ success: false, message: 'Invalid or expired token' });
+    const callerRole = req.headers['x-user-role'] as string;
+    if (!ADMIN_ROLES.includes(callerRole)) {
+      res.status(403).json({ success: false, message: 'Forbidden: admin role required' });
       return;
     }
-    await db.query(`UPDATE users SET is_verified=true WHERE id=$1`, [rows[0].user_id]);
-    await db.query(`UPDATE email_verification_tokens SET used=true WHERE id=$1`, [rows[0].id]);
-    res.json({ success: true, message: 'Email verified successfully' });
+
+    const { userId } = req.params;
+
+    // Verify the target user exists
+    const { rows: userRows } = await db.query(`SELECT id, email, role FROM users WHERE id=$1`, [userId]);
+    if (!userRows.length) {
+      res.status(404).json({ success: false, message: 'User not found' });
+      return;
+    }
+    const targetUser = userRows[0];
+
+    // Check for existing unused, unexpired token.
+    // Tokens are stored as SHA-256 hashes so we can't recover the raw value —
+    // always issue a fresh token on resend.
+    let token: string;
+    const { rows: tokenRows } = await db.query(
+      `SELECT id FROM password_reset_tokens WHERE user_id=$1 AND used=false AND expires_at > now() ORDER BY created_at DESC LIMIT 1`,
+      [userId]
+    );
+
+    if (tokenRows.length) {
+      // Invalidate the existing token and issue a fresh one so each resend
+      // produces a single valid link (prevents token accumulation).
+      await db.query(`UPDATE password_reset_tokens SET used=true WHERE id=$1`, [tokenRows[0].id]);
+    }
+
+    // Create fresh raw token, store its hash
+    token = crypto.randomBytes(32).toString('hex');
+    const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
+    const expiry = new Date(Date.now() + 24 * 60 * 60 * 1000);
+    await db.query(
+      `INSERT INTO password_reset_tokens (user_id, token, expires_at) VALUES ($1, $2, $3)`,
+      [userId, tokenHash, expiry]
+    );
+
+    const inviteUrl = `${process.env.APP_URL || 'http://localhost:3000'}/reset-password?token=${token}`;
+    await sendEmail(
+      targetUser.email,
+      'EduIntel AI — Set Your Password',
+      `<p>Click <a href="${inviteUrl}">here</a> to set your password and activate your account.</p>
+       <p>This link expires in 24 hours.</p>`
+    ).catch(() => console.warn(`Resend invite email to ${targetUser.email} failed`));
+
+    await writeAuditLog({
+      userId: req.headers['x-user-id'] as string,
+      action: 'ADMIN_RESEND_INVITE',
+      outcome: 'SUCCESS',
+      metadata: { targetUserId: userId },
+    });
+
+    res.json({ success: true, message: 'Invite resent' });
   } catch (err) {
     next(err);
   }
@@ -128,9 +250,6 @@ router.post('/login', async (req, res, next) => {
     const valid = await bcrypt.compare(body.password, user.password_hash);
     if (!valid) {
       const attempts = (user.failed_attempts || 0) + 1;
-      const lockUpdate = attempts >= 5
-        ? { is_locked: true, lock_until: new Date(Date.now() + 30 * 60 * 1000) }
-        : {};
 
       await db.query(
         `UPDATE users SET failed_attempts=$1, is_locked=$2, lock_until=$3 WHERE id=$4`,
@@ -141,6 +260,16 @@ router.post('/login', async (req, res, next) => {
       }
       await writeAuditLog({ userId: user.id, action: 'LOGIN', ipAddress: ip, outcome: 'FAIL_BAD_PASSWORD' });
       res.status(401).json({ success: false, message: 'Invalid credentials' });
+      return;
+    }
+
+    // ── NEW: Block unverified accounts (invited users who haven't set their password) ──
+    if (!user.is_verified) {
+      await writeAuditLog({ userId: user.id, action: 'LOGIN', ipAddress: ip, outcome: 'FAIL_NOT_VERIFIED' });
+      res.status(403).json({
+        success: false,
+        message: 'Account not yet activated. Please use your invite link to set your password.',
+      });
       return;
     }
 
@@ -158,7 +287,16 @@ router.post('/login', async (req, res, next) => {
     );
 
     await writeAuditLog({ userId: user.id, action: 'LOGIN', ipAddress: ip, outcome: 'SUCCESS' });
-    res.json({ success: true, data: { accessToken, refreshToken: refreshTokenRaw, role: user.role } });
+    res.json({
+      success: true,
+      data: {
+        accessToken,
+        refreshToken: refreshTokenRaw,
+        role: user.role,
+        userId: user.id,
+        institutionId: user.institution_id ?? null,
+      },
+    });
   } catch (err) {
     next(err);
   }
@@ -209,13 +347,14 @@ router.post('/forgot-password', async (req, res, next) => {
     const { email } = req.body as { email: string };
     const { rows } = await db.query(`SELECT id FROM users WHERE email=$1`, [email]);
     if (rows.length) {
-      const token = crypto.randomBytes(32).toString('hex');
+      const tokenRaw = crypto.randomBytes(32).toString('hex');
+      const tokenHash = crypto.createHash('sha256').update(tokenRaw).digest('hex');
       const expiry = new Date(Date.now() + 60 * 60 * 1000); // 60 min
       await db.query(
         `INSERT INTO password_reset_tokens (user_id, token, expires_at) VALUES ($1,$2,$3)`,
-        [rows[0].id, token, expiry]
+        [rows[0].id, tokenHash, expiry]
       );
-      const resetUrl = `${process.env.APP_URL || 'http://localhost:3000'}/reset-password?token=${token}`;
+      const resetUrl = `${process.env.APP_URL || 'http://localhost:3000'}/reset-password?token=${tokenRaw}`;
       await sendEmail(email, 'Reset your EduIntel AI password',
         `<p>Click <a href="${resetUrl}">here</a> to reset your password. Link expires in 60 minutes.</p>`
       ).catch(() => {});
@@ -234,14 +373,17 @@ router.post('/reset-password', async (req, res, next) => {
     if (!token || !newPassword || newPassword.length < 8) {
       res.status(400).json({ success: false, message: 'Invalid request' }); return;
     }
+    // Hash the raw token from the URL before looking it up in the DB
+    const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
     const { rows } = await db.query(
       `SELECT * FROM password_reset_tokens WHERE token=$1 AND used=false AND expires_at > now()`,
-      [token]
+      [tokenHash]
     );
     if (!rows.length) { res.status(400).json({ success: false, message: 'Invalid or expired token' }); return; }
 
     const hash = await bcrypt.hash(newPassword, BCRYPT_COST);
-    await db.query(`UPDATE users SET password_hash=$1 WHERE id=$2`, [hash, rows[0].user_id]);
+    // Also flip is_verified to true — this activates invited accounts on first password set
+    await db.query(`UPDATE users SET password_hash=$1, is_verified=true WHERE id=$2`, [hash, rows[0].user_id]);
     await db.query(`UPDATE password_reset_tokens SET used=true WHERE id=$1`, [rows[0].id]);
     await db.query(`UPDATE refresh_tokens SET revoked=true WHERE user_id=$1`, [rows[0].user_id]);
 

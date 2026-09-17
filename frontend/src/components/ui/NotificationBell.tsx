@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 import { useNavigate } from 'react-router-dom';
 import { RootState } from '../../app/store';
@@ -12,19 +12,42 @@ const EVENT_ICONS: Record<string, string> = {
   placement_update: '🎓', dropout_risk_alert: '⚠️', subject_assigned: '📝', default: '🔔',
 };
 
+function timeAgo(dateStr: string) {
+  const diff = Date.now() - new Date(dateStr).getTime();
+  const mins = Math.floor(diff / 60000);
+  if (mins < 1) return 'Just now';
+  if (mins < 60) return `${mins}m ago`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `${hrs}h ago`;
+  const days = Math.floor(hrs / 24);
+  return `${days}d ago`;
+}
+
 export default function NotificationBell() {
   const { userId, role } = useAuth();
   const dispatch = useDispatch();
   const navigate = useNavigate();
   const { panelOpen, unreadCount, items } = useSelector((s: RootState) => s.notifications);
   const panelRef = useRef<HTMLDivElement>(null);
+  const [shaking, setShaking] = useState(false);
 
   useNotifications(userId ?? '');
   const markReadMutation = useMarkNotificationRead();
 
+  // Shake bell when new notification arrives
+  useEffect(() => {
+    if (unreadCount > 0) {
+      setShaking(true);
+      const t = setTimeout(() => setShaking(false), 600);
+      return () => clearTimeout(t);
+    }
+  }, [unreadCount]);
+
   const viewAllPath = (role === 'college_admin' || role === 'super_admin')
-    ? '/notifications'
-    : `/${role?.replace('_cell', '')?.replace('examination', 'exam') ?? 'student'}/notifications`;
+    ? '/admin/notifications'
+    : role === 'student'
+    ? '/student/notifications'
+    : '/notifications';
 
   useEffect(() => {
     const handleClick = (e: MouseEvent) => {
@@ -39,22 +62,17 @@ export default function NotificationBell() {
       {/* Bell button */}
       <button
         onClick={() => dispatch(togglePanel())}
-        className="relative p-2 rounded-lg transition-colors duration-150"
-        style={{ color: 'var(--color-text-muted)' }}
-        onMouseEnter={e => (e.currentTarget.style.backgroundColor = 'var(--color-elevated)')}
-        onMouseLeave={e => (e.currentTarget.style.backgroundColor = 'transparent')}
+        className="btn-icon relative"
         aria-label="Notifications"
       >
-        <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+        <svg className={`w-[18px] h-[18px] ${shaking ? 'animate-bell-shake' : ''}`}
+          fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round"
-            d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0
-               00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159
-               c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+            d="M14.857 17.082a23.848 23.848 0 005.454-1.31A8.967 8.967 0 0118 9.75V9A6 6 0 006 9v.75a8.967 8.967 0 01-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 01-5.714 0m5.714 0a3 3 0 11-5.714 0" />
         </svg>
         {unreadCount > 0 && (
-          <span className="absolute -top-0.5 -right-0.5 flex h-4 w-4 items-center justify-center
-            rounded-full text-white text-[10px] font-bold"
-            style={{ backgroundColor: 'var(--color-danger)' }}>
+          <span className="absolute -top-1 -right-1 flex items-center justify-center h-4 min-w-[16px] px-1 rounded-full text-white text-[9px] font-bold animate-scale-in"
+            style={{ background: 'var(--gradient-danger)', boxShadow: '0 0 6px rgba(239,68,68,0.4)' }}>
             {unreadCount > 9 ? '9+' : unreadCount}
           </span>
         )}
@@ -62,48 +80,47 @@ export default function NotificationBell() {
 
       {/* Dropdown */}
       {panelOpen && (
-        <div
-          className="absolute right-0 top-11 w-80 z-50 rounded-xl overflow-hidden"
+        <div className="absolute right-0 top-12 w-80 z-50 rounded-xl overflow-hidden animate-slide-down"
           style={{
             backgroundColor: 'var(--color-surface)',
             border: '1px solid var(--color-border)',
-            boxShadow: 'var(--shadow-card-lg)',
-          }}
-        >
+            boxShadow: 'var(--shadow-xl)',
+          }}>
           {/* Header */}
           <div className="flex items-center justify-between px-4 py-3"
             style={{ borderBottom: '1px solid var(--color-border)' }}>
-            <h3 className="text-sm font-semibold" style={{ color: 'var(--color-text-base)' }}>
+            <h3 className="text-sm font-heading font-bold" style={{ color: 'var(--color-text-base)' }}>
               Notifications
             </h3>
             {unreadCount > 0 && (
-              <span className="badge badge-primary text-2xs">{unreadCount} unread</span>
+              <span className="badge badge-primary text-[10px]">{unreadCount} unread</span>
             )}
           </div>
 
           {/* List */}
-          <div className="max-h-80 overflow-y-auto divide-y" style={{ borderColor: 'var(--color-border)' }}>
+          <div className="max-h-80 overflow-y-auto">
             {items.length === 0 ? (
-              <div className="py-12 text-center">
-                <div className="text-3xl mb-2">🔔</div>
-                <p className="text-sm" style={{ color: 'var(--color-text-faint)' }}>No notifications yet</p>
+              <div className="py-14 text-center animate-fade-in">
+                <div className="w-12 h-12 rounded-xl flex items-center justify-center text-2xl mx-auto mb-3"
+                  style={{ backgroundColor: 'var(--color-elevated)' }}>🔔</div>
+                <p className="text-sm font-medium" style={{ color: 'var(--color-text-muted)' }}>No notifications yet</p>
+                <p className="text-xs mt-1" style={{ color: 'var(--color-text-faint)' }}>We'll notify you when something arrives</p>
               </div>
             ) : items.slice(0, 20).map((n: Notification) => (
               <button
                 key={n.id}
                 onClick={() => { if (n.delivery_status !== 'delivered') markReadMutation.mutate(n.id); }}
-                className="w-full text-left px-4 py-3 transition-colors duration-100 flex gap-3 items-start"
+                className="w-full text-left px-4 py-3 transition-colors duration-100 flex gap-3 items-start
+                  hover:bg-[var(--color-elevated)]"
                 style={{
-                  backgroundColor: n.delivery_status !== 'delivered'
-                    ? 'var(--color-primary-muted)' : 'transparent',
+                  backgroundColor: n.delivery_status !== 'delivered' ? 'var(--color-primary-muted)' : 'transparent',
+                  borderBottom: '1px solid var(--color-border)',
                 }}
-                onMouseEnter={e => (e.currentTarget.style.backgroundColor = 'var(--color-elevated)')}
-                onMouseLeave={e => (e.currentTarget.style.backgroundColor = n.delivery_status !== 'delivered'
-                  ? 'var(--color-primary-muted)' : 'transparent')}
               >
-                <span className="text-base flex-shrink-0 mt-0.5">
+                <div className="w-8 h-8 rounded-lg flex items-center justify-center text-sm flex-shrink-0 mt-0.5"
+                  style={{ backgroundColor: 'var(--color-elevated)' }}>
                   {EVENT_ICONS[n.event_type] ?? EVENT_ICONS.default}
-                </span>
+                </div>
                 <div className="flex-1 min-w-0">
                   {n.subject && (
                     <p className="text-xs font-semibold truncate" style={{ color: 'var(--color-text-base)' }}>
@@ -113,12 +130,12 @@ export default function NotificationBell() {
                   <p className="text-xs line-clamp-2 mt-0.5" style={{ color: 'var(--color-text-muted)' }}>
                     {n.message}
                   </p>
-                  <p className="text-2xs mt-1" style={{ color: 'var(--color-text-faint)' }}>
-                    {n.created_at ? new Date(n.created_at).toLocaleString() : ''}
+                  <p className="text-[10px] mt-1" style={{ color: 'var(--color-text-faint)' }}>
+                    {n.created_at ? timeAgo(n.created_at) : ''}
                   </p>
                 </div>
                 {n.delivery_status !== 'delivered' && (
-                  <span className="w-2 h-2 rounded-full flex-shrink-0 mt-1.5"
+                  <span className="w-2 h-2 rounded-full flex-shrink-0 mt-2 animate-pulse-dot"
                     style={{ backgroundColor: 'var(--color-primary)' }} />
                 )}
               </button>
@@ -129,11 +146,8 @@ export default function NotificationBell() {
           <div className="px-4 py-2.5 text-center" style={{ borderTop: '1px solid var(--color-border)' }}>
             <button
               onClick={() => { dispatch(closePanel()); navigate(viewAllPath); }}
-              className="text-xs font-medium transition-colors duration-150"
-              style={{ color: 'var(--color-primary)' }}
-              onMouseEnter={e => (e.currentTarget.style.textDecoration = 'underline')}
-              onMouseLeave={e => (e.currentTarget.style.textDecoration = 'none')}
-            >
+              className="text-xs font-semibold transition-colors duration-150 hover:underline"
+              style={{ color: 'var(--color-primary)' }}>
               View all notifications →
             </button>
           </div>

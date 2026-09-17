@@ -53,10 +53,10 @@ export class AdminOverviewPage {
     this.belowThresholdRows    = page.locator('.divide-y > div');
     this.noThresholdMsg        = page.getByText(/all students are above the threshold/i);
 
-    this.navStudents      = page.getByRole('link', { name: /^students$/i });
-    this.navFaculty       = page.getByRole('link', { name: /^faculty$/i });
-    this.navAttendance    = page.getByRole('link', { name: /^attendance$/i });
-    this.navFees          = page.getByRole('link', { name: /^fees$/i });
+    this.navStudents      = page.getByRole('link', { name: /students/i });
+    this.navFaculty       = page.getByRole('link', { name: /faculty/i });
+    this.navAttendance    = page.getByRole('link', { name: /attendance/i });
+    this.navFees          = page.getByRole('link', { name: /fees/i });
     this.navAI            = page.getByRole('link', { name: /ai insights/i });
     this.navNotifications = page.getByRole('link', { name: /notifications/i });
     this.navReports       = page.getByRole('link', { name: /reports/i });
@@ -118,7 +118,17 @@ export class AdminOverviewPage {
   }
 
   async expectTotalStudentsValue(value: string | number): Promise<void> {
-    await expect(this.page.getByText(String(value))).toBeVisible();
+    // Scope to the Total Students stat card and check the value <p> directly
+    const card = this.page.getByText('Total Students').locator('..');
+    await expect(card.locator('p').last()).toContainText(String(value), { timeout: 10_000 });
+  }
+
+  async expectTotalStudentsNumeric(): Promise<void> {
+    // Verify the card shows a real number, not the '—' fallback
+    const card = this.page.getByText('Total Students').locator('..');
+    const valueText = await card.locator('p').last().textContent({ timeout: 10_000 });
+    const num = parseInt(valueText?.trim() ?? '', 10);
+    expect(num).toBeGreaterThanOrEqual(1);
   }
 
   async expectBelowThresholdListVisible(): Promise<void> {

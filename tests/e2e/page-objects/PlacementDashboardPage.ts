@@ -33,8 +33,8 @@ export class PlacementOverviewPage {
     this.analyticsSection = page.getByText(/analytics|by company|by department/i).first();
     this.spinner          = page.getByText(/loading/i);
 
-    this.navCompanies = page.getByRole('link', { name: /^companies$/i });
-    this.navDrives    = page.getByRole('link', { name: /^drives$/i });
+    this.navCompanies = page.getByRole('link', { name: /companies/i });
+    this.navDrives    = page.getByRole('link', { name: /drives/i });
     this.navProfile   = page.getByRole('link', { name: /ai profile/i });
   }
 
@@ -108,20 +108,25 @@ export class CompanyManagementPage {
     this.page = page;
 
     this.pageTitle = page.getByRole('heading', { name: /company|companies/i }).first();
-    this.addBtn    = page.getByRole('button', { name: /\+ add company/i });
+    // The add-company form is always visible — there is no toggle button.
+    // addBtn is unused; kept for interface compatibility.
+    this.addBtn    = page.getByRole('button', { name: /add company/i });
     this.cancelBtn = page.getByRole('button', { name: /cancel/i });
 
-    this.companyNameInput = page.getByLabel(/company name/i).or(page.getByPlaceholder(/infosys|company/i));
-    this.industryInput    = page.getByLabel(/industry/i).or(page.getByPlaceholder(/IT services|industry/i));
-    this.ctcMinInput      = page.getByLabel(/ctc min|minimum ctc/i).or(page.getByPlaceholder(/3\.5|min/i));
-    this.ctcMaxInput      = page.getByLabel(/ctc max|maximum ctc/i).or(page.getByPlaceholder(/8\.0|max/i));
-    this.roleInput        = page.getByLabel(/^role$/i).or(page.getByPlaceholder(/software engineer|role/i));
-    this.saveBtn          = page.getByRole('button', { name: /save company|add company|create/i });
+    // Form inputs use placeholder text only (no associated <label htmlFor>).
+    this.companyNameInput = page.getByPlaceholder(/TCS|company/i).first();
+    this.industryInput    = page.getByPlaceholder(/IT Services|industry/i).first();
+    // CTC inputs: placeholders are '4' and '8' — scope by position
+    this.ctcMinInput      = page.getByPlaceholder(/^4$/).first();
+    this.ctcMaxInput      = page.getByPlaceholder(/^8$/).first();
+    this.roleInput        = page.getByPlaceholder(/Software Engineer|role/i).first();
+    this.saveBtn          = page.getByRole('button', { name: /add company/i });
     this.formError        = page.getByText(/failed to|error/i).first();
 
     this.table     = page.getByRole('table');
+    // Use locator('th') consistent with the verified Student Management fix
     this.tableRows = page.getByRole('table').getByRole('row').filter({
-      hasNot: page.getByRole('columnheader'),
+      hasNot: page.locator('th'),
     });
     this.emptyMsg = page.getByText(/no companies/i);
 
@@ -135,7 +140,7 @@ export class CompanyManagementPage {
   }
 
   async openAddForm(): Promise<void> {
-    await this.addBtn.click();
+    // The add-company form is always visible on this page — no toggle needed.
     await expect(this.saveBtn).toBeVisible({ timeout: 5_000 });
   }
 
@@ -155,7 +160,8 @@ export class CompanyManagementPage {
     await this.openAddForm();
     await this.fillForm(data);
     await this.submitForm();
-    await expect(this.saveBtn).toBeHidden({ timeout: 10_000 });
+    // Form stays visible after submit (no modal); wait for network to settle
+    await this.page.waitForLoadState('networkidle', { timeout: 10_000 });
   }
 
   async expectOnPage(): Promise<void> {
@@ -238,7 +244,10 @@ export class RecruitmentDrivesPage {
     this.eligibleStudentsSection = page.getByText(/eligible students/i).first();
     this.eligibleStudentRows     = page.locator('[class*="card"], [class*="rounded"]').filter({ hasText: /cgpa|student/i });
 
-    this.driveCards = page.locator('[class*="card"], [class*="rounded"]').filter({ hasText: /active|scheduled/i });
+    // Drives render in a <Table> component. Count data rows (exclude header).
+    this.driveCards = page.getByRole('table').getByRole('row').filter({
+      hasNot: page.locator('th'),
+    });
     this.emptyMsg   = page.getByText(/no drives|no recruitment/i);
 
     this.spinner = page.getByText(/loading/i);
@@ -256,12 +265,18 @@ export class RecruitmentDrivesPage {
   }
 
   async expectSeedDrivesVisible(): Promise<void> {
-    // Seed has 2 active drives
-    const count = await this.driveCards.count();
-    expect(count).toBeGreaterThanOrEqual(2);
+    // Seed has 2 active drives — wait for at least 2 data rows in the table
+    await expect(async () => {
+      const count = await this.driveCards.count();
+      expect(count).toBeGreaterThanOrEqual(2);
+    }).toPass({ timeout: 10_000 });
   }
 
   async expectEligibleStudentsSection(): Promise<void> {
+    // The eligible-students panel only renders after clicking "View Eligible →"
+    // on a drive row. Click the first available drive action button.
+    await this.page.getByRole('button', { name: /view eligible/i }).first()
+      .click({ timeout: 8_000 });
     await expect(this.eligibleStudentsSection).toBeVisible({ timeout: 10_000 });
   }
 }

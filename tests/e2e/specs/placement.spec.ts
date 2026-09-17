@@ -279,8 +279,8 @@ test.describe('Placement service — API (Req 15)', () => {
     expect(body.data).toHaveProperty('cgpa');
     expect(body.data).toHaveProperty('readiness_score');
     expect(body.data).toHaveProperty('skill_tags');
-    expect(body.data.readiness_score).toBeGreaterThanOrEqual(0);
-    expect(body.data.readiness_score).toBeLessThanOrEqual(100);
+    expect(parseFloat(body.data.readiness_score)).toBeGreaterThanOrEqual(0);
+    expect(parseFloat(body.data.readiness_score)).toBeLessThanOrEqual(100);
   });
 
   test('GET /api/placement/analytics returns stats (Req 15.7)', async ({ request }) => {
@@ -310,8 +310,8 @@ test.describe('Placement service — API (Req 15)', () => {
     expect(res.ok()).toBeTruthy();
     const body = await res.json();
     // All returned students must have CGPA >= 8.0
-    for (const student of body.data as Array<{ cgpa: number }>) {
-      expect(student.cgpa).toBeGreaterThanOrEqual(8.0);
+    for (const student of body.data as Array<{ cgpa: number | string }>) {
+      expect(parseFloat(String(student.cgpa))).toBeGreaterThanOrEqual(8.0);
     }
   });
 

@@ -59,6 +59,38 @@ def predict_eligibility_batch(req: EligibilityBatchRequest):
 
 
 @router.post("/eligibility-risk/summary")
-def eligibility_summary():
-    """Return aggregated risk counts — used by Analytics Service."""
-    return {"success": True, "data": {"low": 0, "medium": 0, "high": 0, "note": "Run batch prediction first"}}
+def eligibility_summary(req: EligibilityBatchRequest = None):
+    """
+    Return aggregated risk counts across a batch of students.
+    If no students are provided in the request body the endpoint returns zeros
+    with an explanatory message (the analytics service now calls /batch directly).
+    Accepts the same payload as /eligibility-risk/batch for direct callers.
+    """
+    from app.main import model_loader
+    model = model_loader.get("eligibility_risk")
+
+    students = req.students if req else []
+    if not students:
+        return {
+            "success": True,
+            "data": {"low": 0, "medium": 0, "high": 0},
+            "message": "No students provided. POST with {\"students\": [...]} to get live counts.",
+        }
+
+    if len(students) > 500:
+        raise HTTPException(status_code=400, detail="Batch size cannot exceed 500")
+
+    counts = {"Low": 0, "Medium": 0, "High": 0}
+    for s in students:
+        result = _predict_one(s, model)
+        counts[result.risk_score] = counts.get(result.risk_score, 0) + 1
+
+    return {
+        "success": True,
+        "data": {
+            "low":    counts["Low"],
+            "medium": counts["Medium"],
+            "high":   counts["High"],
+            "total":  len(students),
+        },
+    }

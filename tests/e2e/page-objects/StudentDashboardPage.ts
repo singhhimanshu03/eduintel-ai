@@ -35,14 +35,17 @@ export class StudentOverviewPage {
     this.page = page;
 
     this.pageTitle           = page.getByRole('heading', { name: /student portal|overview/i }).first();
-    this.attendanceCard      = page.getByText(/attendance/i).first();
-    this.resultsCard         = page.getByText(/results|performance/i).first();
-    this.eligibilitySection  = page.getByText(/eligibility/i).first();
-    this.recommendationsSection = page.getByText(/recommendation/i).first();
+    // attendanceCard targets the "Avg Attendance" stat card — always present on overview.
+    // resultsCard and eligibilitySection target labels that only appear in sub-pages,
+    // so exactly one of the three resolves on the overview page.
+    this.attendanceCard      = page.getByText('Avg Attendance').locator('..');
+    this.resultsCard         = page.getByRole('heading', { name: /my results|semester results/i });
+    this.eligibilitySection  = page.getByRole('heading', { name: /eligibility status/i });
+    this.recommendationsSection = page.getByText(/ai improvement plan/i).first();
     this.spinner             = page.getByText(/loading/i);
 
-    this.navAttendance    = page.getByRole('link', { name: /^attendance$/i });
-    this.navResults       = page.getByRole('link', { name: /^results$/i });
+    this.navAttendance    = page.getByRole('link', { name: /attendance/i });
+    this.navResults       = page.getByRole('link', { name: /results/i });
     this.navFees          = page.getByRole('link', { name: /fee status/i });
     this.navHallTicket    = page.getByRole('link', { name: /hall ticket/i });
     this.navNotifications = page.getByRole('link', { name: /notifications/i });

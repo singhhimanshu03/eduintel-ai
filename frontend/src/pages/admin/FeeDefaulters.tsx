@@ -20,35 +20,50 @@ export default function FeeDefaulters() {
     queryFn: () => api.get('/fees/analytics').then(r => r.data.data),
   });
 
-  const statusCls = (s: string) =>
-    s === 'paid'           ? 'bg-green-100  dark:bg-green-900/30  text-green-700  dark:text-green-300'  :
-    s === 'partially_paid' ? 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-300' :
-                             'bg-red-100    dark:bg-red-900/30    text-red-700    dark:text-red-300';
-
   const columns = [
-    { header: 'Student ID',   accessor: 'student_id' as keyof FeeRecord },
-    { header: 'Total Fee',    accessor: (r: FeeRecord) => `₹${Number(r.total_fee).toLocaleString()}` },
-    { header: 'Paid',         accessor: (r: FeeRecord) => `₹${Number(r.paid_amount).toLocaleString()}` },
-    { header: 'Balance',      accessor: (r: FeeRecord) => (
-      <span className="text-red-600 dark:text-red-400 font-semibold">₹{Number(r.balance).toLocaleString()}</span>
+    { header: 'Student ID',   accessor: 'student_id' as keyof FeeRecord, sortable: true },
+    { header: 'Total Fee',    accessor: (r: FeeRecord) => (
+      <span style={{ color: 'var(--color-text-base)' }}>₹{Number(r.total_fee).toLocaleString()}</span>
     )},
-    { header: 'Status', accessor: (r: FeeRecord) => (
-      <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${statusCls(r.fee_status)}`}>
-        {r.fee_status.replace('_', ' ')}
+    { header: 'Paid',         accessor: (r: FeeRecord) => (
+      <span style={{ color: 'var(--color-success)' }}>₹{Number(r.paid_amount).toLocaleString()}</span>
+    )},
+    { header: 'Balance',      accessor: (r: FeeRecord) => (
+      <span className="font-semibold" style={{ color: 'var(--color-danger)' }}>₹{Number(r.balance).toLocaleString()}</span>
+    )},
+    { header: 'Status', accessor: (r: FeeRecord) => {
+      const cls = r.fee_status === 'paid' ? 'badge-success' :
+                  r.fee_status === 'partially_paid' ? 'badge-warning' : 'badge-danger';
+      return <span className={`badge ${cls}`}>{r.fee_status.replace('_', ' ')}</span>;
+    }},
+    { header: 'Last Payment', accessor: (r: FeeRecord) => (
+      <span style={{ color: 'var(--color-text-muted)' }}>
+        {r.last_payment_date ? r.last_payment_date.split('T')[0] : '—'}
       </span>
     )},
-    { header: 'Last Payment', accessor: (r: FeeRecord) => r.last_payment_date ? r.last_payment_date.split('T')[0] : '—' },
   ];
 
   return (
     <div className="space-y-6">
       <PageHeader title="Fee Management" subtitle="Outstanding dues and defaulter report" />
-      {analytics?.dailyCollection && <FeeCollectionChart data={analytics.dailyCollection} />}
+      {analytics?.dailyCollection && (
+        <div className="animate-fade-in-up">
+          <FeeCollectionChart data={analytics.dailyCollection} />
+        </div>
+      )}
       {isLoading ? <LoadingSpinner /> : (
-        <>
-          <p className="text-sm text-gray-500 dark:text-gray-400">{(defaulters as FeeRecord[]).length} students with pending dues</p>
-          <Table columns={columns} data={defaulters as FeeRecord[]} keyField="student_id" emptyMessage="No defaulters — all fees collected!" />
-        </>
+        <div className="animate-fade-in-up stagger-2">
+          <Table
+            columns={columns}
+            data={defaulters as FeeRecord[]}
+            keyField="student_id"
+            emptyMessage="No defaulters — all fees collected!"
+            emptyIcon="🎉"
+            searchable
+            searchPlaceholder="Search by student ID…"
+            pageSize={10}
+          />
+        </div>
       )}
     </div>
   );

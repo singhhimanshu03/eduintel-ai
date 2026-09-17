@@ -32,66 +32,83 @@ export default function NotificationCenter() {
     <div className="space-y-6 max-w-2xl">
       <PageHeader title="Notification Center" subtitle="Send alerts, reminders, and announcements" />
 
-      <div className="card p-6 space-y-5 transition-colors duration-200">
-        <h3 className="font-semibold text-gray-700 dark:text-gray-200 text-sm">Compose Notification</h3>
+      <div className="card p-6 space-y-5">
+        <h3 className="text-sm font-heading font-bold flex items-center gap-2" style={{ color: 'var(--color-text-base)' }}>
+          <svg className="w-4 h-4" fill="none" stroke="var(--color-primary)" strokeWidth={2} viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75" />
+          </svg>
+          Compose Notification
+        </h3>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
-            <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Recipient User ID</label>
+            <label className="text-xs font-semibold mb-1.5 block" style={{ color: 'var(--color-text-muted)' }}>Recipient User ID</label>
             <input className="input-base" placeholder="Leave blank to broadcast"
               value={form.userId} onChange={e => setForm(f => ({ ...f, userId: e.target.value }))} />
           </div>
           <div>
-            <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Channel</label>
-            <select className="input-base" value={form.channel} onChange={e => setForm(f => ({ ...f, channel: e.target.value }))}>
+            <label className="text-xs font-semibold mb-1.5 block" style={{ color: 'var(--color-text-muted)' }}>Channel</label>
+            <select className="input-base select-styled" value={form.channel} onChange={e => setForm(f => ({ ...f, channel: e.target.value }))}>
               <option value="in_app">In-App</option>
               <option value="email">Email</option>
               <option value="both">Both</option>
             </select>
           </div>
           <div>
-            <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Event Type</label>
-            <select className="input-base" value={form.eventType} onChange={e => setForm(f => ({ ...f, eventType: e.target.value }))}>
+            <label className="text-xs font-semibold mb-1.5 block" style={{ color: 'var(--color-text-muted)' }}>Event Type</label>
+            <select className="input-base select-styled" value={form.eventType} onChange={e => setForm(f => ({ ...f, eventType: e.target.value }))}>
               {EVENT_TYPES.map(et => <option key={et.value} value={et.value}>{et.icon} {et.label}</option>)}
             </select>
           </div>
           <div>
-            <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Subject</label>
+            <label className="text-xs font-semibold mb-1.5 block" style={{ color: 'var(--color-text-muted)' }}>Subject</label>
             <input className="input-base" placeholder="Notification subject"
               value={form.subject} onChange={e => setForm(f => ({ ...f, subject: e.target.value }))} />
           </div>
         </div>
         <div>
-          <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Message *</label>
+          <label className="text-xs font-semibold mb-1.5 block" style={{ color: 'var(--color-text-muted)' }}>
+            Message <span style={{ color: 'var(--color-danger)' }}>*</span>
+          </label>
           <textarea className="input-base resize-none h-24" placeholder="Type your message here…"
             value={form.message} onChange={e => setForm(f => ({ ...f, message: e.target.value }))} />
         </div>
         {sent && (
-          <div className="rounded-lg px-3 py-2 text-sm
-            bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-700/40
-            text-green-700 dark:text-green-300">
-            ✓ Notification sent successfully!
+          <div className="flex items-center gap-2.5 p-3 rounded-xl animate-fade-in"
+            style={{ backgroundColor: 'var(--color-success-muted)', border: '1px solid rgba(16,185,129,0.2)' }}>
+            <svg className="w-4 h-4" fill="none" stroke="var(--color-success)" strokeWidth={2} viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            <p className="text-sm font-medium" style={{ color: 'var(--color-success)' }}>Notification sent successfully!</p>
           </div>
         )}
-        <button onClick={() => sendNotification.mutate()} disabled={sendNotification.isPending || !form.message}
-          className="bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-2.5 rounded-lg text-sm font-medium transition disabled:opacity-50">
-          {sendNotification.isPending ? '⏳ Sending…' : '📤 Send Notification'}
+        <button onClick={() => sendNotification.mutate()} disabled={sendNotification.isPending || !form.message} className="btn-primary">
+          {sendNotification.isPending ? (
+            <><svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+            </svg> Sending…</>
+          ) : (
+            <><svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M6 12L3.269 3.126A59.768 59.768 0 0121.485 12 59.77 59.77 0 013.27 20.876L5.999 12zm0 0h7.5" />
+            </svg> Send Notification</>
+          )}
         </button>
       </div>
 
-      <div className="card p-5 transition-colors duration-200">
-        <h3 className="font-semibold text-gray-700 dark:text-gray-200 text-sm mb-4">Quick Send Presets</h3>
+      <div className="card p-5">
+        <h3 className="text-sm font-heading font-bold mb-4" style={{ color: 'var(--color-text-base)' }}>Quick Send Presets</h3>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           {PRESETS.map(preset => (
             <button key={preset.label}
               onClick={() => setForm(f => ({ ...f, eventType: preset.eventType, subject: preset.subject, message: preset.message }))}
-              className="flex items-start gap-3 p-3 rounded-lg text-left transition
-                border border-gray-200 dark:border-white/10
-                hover:border-indigo-300 dark:hover:border-indigo-700
-                hover:bg-indigo-50 dark:hover:bg-indigo-900/20">
-              <span className="text-2xl">{preset.icon}</span>
-              <div>
-                <p className="text-sm font-medium text-gray-800 dark:text-white">{preset.label}</p>
-                <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5 line-clamp-1">{preset.message}</p>
+              className="card card-hover-lift flex items-start gap-3 p-4 text-left group">
+              <div className="w-10 h-10 rounded-xl flex items-center justify-center text-lg flex-shrink-0 transition-transform duration-200 group-hover:scale-110"
+                style={{ backgroundColor: 'var(--color-elevated)' }}>
+                {preset.icon}
+              </div>
+              <div className="min-w-0">
+                <p className="text-sm font-semibold" style={{ color: 'var(--color-text-base)' }}>{preset.label}</p>
+                <p className="text-xs mt-0.5 line-clamp-1" style={{ color: 'var(--color-text-faint)' }}>{preset.message}</p>
               </div>
             </button>
           ))}

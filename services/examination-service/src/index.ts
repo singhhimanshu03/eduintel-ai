@@ -94,6 +94,12 @@ app.put('/api/exams/schedules/:id/publish', async (req: Request, res: Response, 
 app.post('/api/exams/marks', async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { studentId, subjectCode, semester, academicYear, internalMarks, semesterMarks } = req.body;
+    // Basic range validation — column is numeric(5,2), max total 999.99
+    if (internalMarks < 0 || semesterMarks < 0 ||
+        internalMarks > 999 || semesterMarks > 999 ||
+        (internalMarks + semesterMarks) > 999) {
+      res.status(400).json({ success: false, message: 'Marks must be between 0 and 999 (total cannot exceed 999)' }); return;
+    }
     // Validate bounds
     const { rows: bounds } = await db.query(
       `SELECT * FROM marks_bounds WHERE subject_code=$1`, [subjectCode]

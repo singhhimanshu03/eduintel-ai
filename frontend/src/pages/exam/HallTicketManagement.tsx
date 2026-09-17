@@ -17,41 +17,44 @@ export default function HallTicketManagement() {
     <div className="space-y-6">
       <PageHeader title="Hall Ticket Management" subtitle="Check eligibility and generate examination hall tickets" />
 
-      <div className="card p-5 flex gap-3 items-end flex-wrap transition-colors duration-200">
+      <div className="card p-5 flex gap-3 items-end flex-wrap">
         {[
-          { label: 'Student ID', key: 'studentId', val: studentId, set: setStudentId, ph: 'UUID' },
-          { label: 'Exam Cycle', key: 'examCycle', val: examCycle, set: setExamCycle, ph: 'Nov-2024' },
-        ].map(({ label, key, val, set, ph }) => (
-          <div key={key} className="flex-1 min-w-[180px]">
-            <label className="text-xs text-gray-500 dark:text-gray-400 mb-1 block">{label}</label>
+          { label: 'Student ID', val: studentId, set: setStudentId, ph: 'UUID' },
+          { label: 'Exam Cycle', val: examCycle, set: setExamCycle, ph: 'Nov-2024' },
+        ].map(({ label, val, set, ph }) => (
+          <div key={label} className="flex-1 min-w-[180px]">
+            <label className="text-xs font-semibold mb-1.5 block" style={{ color: 'var(--color-text-muted)' }}>{label}</label>
             <input className="input-base" placeholder={ph} value={val} onChange={e => set(e.target.value)} />
           </div>
         ))}
-        <button onClick={handleGenerate} disabled={mutation.isPending || !studentId || !examCycle}
-          className="bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2 rounded-lg text-sm transition disabled:opacity-50 h-[42px]">
-          {mutation.isPending ? '⏳ Checking…' : 'Generate'}
+        <button onClick={handleGenerate} disabled={mutation.isPending || !studentId || !examCycle} className="btn-primary h-[42px]">
+          {mutation.isPending ? (
+            <><svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+            </svg> Checking…</>
+          ) : 'Generate'}
         </button>
       </div>
 
       {results.length > 0 && (
-        <div className="space-y-3">
-          <h3 className="font-semibold text-gray-700 dark:text-gray-200">Results</h3>
+        <div className="space-y-3 animate-fade-in">
+          <h3 className="text-sm font-heading font-bold" style={{ color: 'var(--color-text-base)' }}>Results</h3>
           {results.map((r, i) => (
-            <div key={i} className={`rounded-xl border p-4 transition-colors duration-200 ${
-              r.success
-                ? 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-700/40'
-                : 'bg-red-50  dark:bg-red-900/20  border-red-200  dark:border-red-700/40'
-            }`}>
+            <div key={i} className="rounded-xl p-4 animate-fade-in-up" style={{
+              backgroundColor: r.success ? 'var(--color-success-muted)' : 'var(--color-danger-muted)',
+              border: `1px solid ${r.success ? 'rgba(16,185,129,0.2)' : 'rgba(239,68,68,0.2)'}`,
+            }}>
               <div className="flex items-center justify-between">
-                <span className="font-medium text-sm text-gray-800 dark:text-white">{r.studentId}</span>
-                <span className={`text-xs font-bold ${r.success ? 'text-green-700 dark:text-green-300' : 'text-red-700 dark:text-red-300'}`}>
+                <span className="font-medium text-sm" style={{ color: 'var(--color-text-base)' }}>{r.studentId}</span>
+                <span className={`badge ${r.success ? 'badge-success' : 'badge-danger'}`}>
                   {r.success ? '✓ ELIGIBLE' : '✗ BLOCKED'}
                 </span>
               </div>
               {!r.success && r.reasons && (
                 <ul className="mt-2 space-y-1">
                   {r.reasons.map((reason, j) => (
-                    <li key={j} className="text-xs text-red-600 dark:text-red-400 flex gap-1.5">
+                    <li key={j} className="text-xs flex gap-1.5" style={{ color: 'var(--color-danger)' }}>
                       <span>•</span>{reason}
                     </li>
                   ))}
